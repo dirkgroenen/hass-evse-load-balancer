@@ -1,0 +1,14 @@
+{
+  "domain": "evse_load_balancer",
+  "name": "EVSE Load Balancer",
+  "codeowners": [
+    "@dirkgroenen"
+  ],
+  "config_flow": true,
+  "documentation": "https://www.home-assistant.io/integrations/energylabs",
+  "iot_class": "local_push",
+  "quality_scale": "bronze",
+  "requirements": [],
+  "integration_type": "device",
+  "version": "0.0.1"
+}

@@ -1,0 +1,33 @@
+{
+  "title": "EVSE Load Balancer",
+  "config": {
+    "error": {
+      "metering_selection_required": "Either select a Smart Meter or select 'Advanced Energy Configuration'"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "charger_device": "EVSE Charger",
+          "meter_device": "Smart Energy Meter",
+          "custom_phase_config": "Advanced energy configuration (use when no energy meter is available)",
+          "fuse_size": "Fuse size per phase (A)",
+          "phase_count": "Number of phases"
+        },
+        "description": "Provide your Charger and Meter details.",
+        "title": "Configuration"
+      },
+      "power": {
+        "data": {
+          "l1": "Phase One (L1)",
+          "l2": "Phase Two (L2)",
+          "l3": "Phase Three (L3)",
+          "power_consumption": "Power Consumption",
+          "power_production": "Power Production",
+          "voltage": "Voltage"
+        },
+        "description": "Add a GitHub repo, check the box to add another.",
+        "title": "Add GitHub Repository"
+      }
+    }
+  }
+}
