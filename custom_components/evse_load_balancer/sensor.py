@@ -2,18 +2,19 @@
 import logging
 
 from homeassistant import config_entries, core
-
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
 )
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import (
+    DeviceInfo,
+    EntityCategory,
+)
 from functools import cached_property
 from .coordinator import EVSELoadBalancerCoordinator
-
-from .const import Phase
 from .const import (
+    Phase,
     DOMAIN,
 )
 
@@ -27,17 +28,20 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key=SENSOR_KEY_AVAILABLE_CURRENT_L1,
         device_class=SensorDeviceClass.CURRENT,
-        suggested_display_precision=2,
+        suggested_display_precision=0,
+        entity_registry_enabled_default=False,
     ),
     SensorEntityDescription(
         key=SENSOR_KEY_AVAILABLE_CURRENT_L2,
         device_class=SensorDeviceClass.CURRENT,
-        suggested_display_precision=2,
+        suggested_display_precision=0,
+        entity_registry_enabled_default=False,
     ),
     SensorEntityDescription(
         key=SENSOR_KEY_AVAILABLE_CURRENT_L3,
         device_class=SensorDeviceClass.CURRENT,
-        suggested_display_precision=2,
+        suggested_display_precision=0,
+        entity_registry_enabled_default=False,
     ),
 )
 
@@ -69,6 +73,7 @@ class LoadBalancerSensor(SensorEntity):
                  ):
         super().__init__()
         self.entity_description = entity_description
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._coordinator = coordinator
         self._attr_should_poll = False
         self._attr_name = f"EVSE {entity_description.key.replace('_', ' ').title()}"

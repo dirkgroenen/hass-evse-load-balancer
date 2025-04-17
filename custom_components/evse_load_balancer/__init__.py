@@ -53,6 +53,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     coordinator: EVSELoadBalancerCoordinator = hass.data[DOMAIN][entry.entry_id]
-    coordinator.async_unload()
+    await coordinator.async_unload()
     hass.data[DOMAIN].pop(entry.entry_id, None)
     return True

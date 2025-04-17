@@ -19,7 +19,7 @@ class Meter(ABC):
         self.hass = hass
 
     @abstractmethod
-    def get_active_phase_current(self, phase: Phase) -> Optional[float]:
+    def get_active_phase_current(self, phase: Phase) -> Optional[int]:
         """
         Returns the available current on a given phase
         """
@@ -39,10 +39,3 @@ class Meter(ABC):
         to function properly. 
         """
         pass
-
-    @abstractmethod
-    def refresh_entities(self) -> None:
-        """
-        Refreshes the entities for the meter.
-        """
-    pass

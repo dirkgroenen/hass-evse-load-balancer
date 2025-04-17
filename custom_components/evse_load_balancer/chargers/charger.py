@@ -39,7 +39,7 @@ class Charger(ABC):
         pass
 
     @abstractmethod
-    def set_current_limit(self, limit: int):
+    async def set_current_limit(self, limit: int):
         """
         Set the charger limit in amps.
         """
@@ -49,5 +49,25 @@ class Charger(ABC):
     def get_current_limit(self) -> Optional[int]:
         """
         Set the charger limit in amps.
+        """
+        pass
+
+    @abstractmethod
+    def car_connected(self) -> bool:
+        """
+        Returns whether the car is connected to the charger and therefore 
+        ready to receive a charge.  This does not mean that the car is 
+        actually charging. Combine with is_charging() to determine if the car 
+        is already charging.
+
+        When the connected car is not authorised (and therefore the charger is not ready)
+        we consider it a "disconnected" state. 
+        """
+        pass
+
+    @abstractmethod
+    def is_charging(self) -> bool:
+        """
+        Returns whether we are charging the car.
         """
         pass

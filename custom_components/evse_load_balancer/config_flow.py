@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
+from homeassistant.core import callback
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.core import HomeAssistant
 import homeassistant.helpers.config_validation as cv
@@ -21,6 +21,8 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
 )
 from homeassistant.data_entry_flow import section
+
+from .options_flow import EvseLoadBalancerOptionsFlow
 
 from .exceptions.validation_exception import ValidationException
 
@@ -39,8 +41,6 @@ CONF_PHASE_SENSOR_VOLTAGE = "voltage"
 CONF_CUSTOM_PHASE_CONFIG = "custom_phase_config"
 CONF_METER_DEVICE = "meter_device"
 CONF_CHARGER_DEVICE = "charger_device"
-
-OPTION_THROTTLE_SECONDS = "throttle_seconds"
 
 STEP_INIT_SCHEMA = vol.Schema(
     {
@@ -124,6 +124,12 @@ class EvseLoadBalancerConfigFlow(ConfigFlow, domain=DOMAIN):
     MINOR_VERSION = 1
 
     data = {}
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        """Get the options flow for this handler."""
+        return EvseLoadBalancerOptionsFlow()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None

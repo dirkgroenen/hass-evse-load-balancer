@@ -18,7 +18,7 @@ class CustomMeter(Meter):
         """
         self.hass = hass
 
-    def get_active_phase_current(self, phase: Phase) -> Optional[float]:
+    def get_active_phase_current(self, phase: Phase) -> Optional[int]:
         """
         Returns the available current on a given phase
         """

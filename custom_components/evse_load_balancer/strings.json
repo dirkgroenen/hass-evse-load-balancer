@@ -5,6 +5,13 @@
       "metering_selection_required": "Either select a Smart Meter or select 'Advanced Energy Configuration'"
     },
     "step": {
+      "init": {
+        "data": {
+          "charge_limit_hysteresis": "Hysteresis (Minutes)"
+        },
+        "title": "Manage EVSE Load Balancer",
+        "description": "How long the available current must be above the current charger setting before increasing it. Averages values over this time period to avoid rapid changes."
+      },
       "user": {
         "data": {
           "charger_device": "EVSE Charger",
