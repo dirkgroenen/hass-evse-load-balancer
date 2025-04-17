@@ -3,13 +3,8 @@ from typing import Optional
 from homeassistant.helpers.device_registry import (
     DeviceEntry,
 )
-from homeassistant.helpers.entity_registry import (
-    RegistryEntry
-)
-from homeassistant.helpers import (
-    entity_registry as er,
-)
 from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
 
 from ..ha_device import HaDevice
 from .meter import (Meter, Phase)
@@ -47,11 +42,13 @@ class DsmrMeter(Meter, HaDevice):
     def __init__(
         self,
         hass: HomeAssistant,
+        config_entry: ConfigEntry,
         device_entry: DeviceEntry
     ):
         """
         Initialize the Meter instance.
         """
+        Meter.__init__(self, hass, config_entry)
         HaDevice.__init__(self, hass, device_entry)
         self.refresh_entities()
 
@@ -80,7 +77,7 @@ class DsmrMeter(Meter, HaDevice):
             _LOGGER.warning("Missing states for one of phase %s: consumption: %s, production: %s",
                             phase, consumption_state, production_state)
             return None
-        return (consumption_state - production_state)
+        return (production_state - consumption_state)
 
     def get_tracking_entities(self) -> list[str]:
         """

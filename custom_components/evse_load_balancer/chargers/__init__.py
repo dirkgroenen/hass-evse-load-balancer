@@ -7,9 +7,11 @@ from homeassistant.helpers.device_registry import (
 from ..const import (
     SUPPORTED_CHARGER_DEVICE_DOMAINS
 )
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 
 
-async def charger_factory(hass, device_entry_id) -> Charger:
+async def charger_factory(hass: HomeAssistant, config_entry: ConfigEntry, device_entry_id: str) -> Charger:
     """
     Factory function to create a charger instance based on the manufacturer.
     """
@@ -21,6 +23,6 @@ async def charger_factory(hass, device_entry_id) -> Charger:
 
     manufacturer = next((domain for [domain, _] in device.identifiers if domain in SUPPORTED_CHARGER_DEVICE_DOMAINS), None)
     if manufacturer == "easee":
-        return EaseeCharger(hass, device)
+        return EaseeCharger(hass, config_entry, device)
     else:
         raise ValueError(f"Unsupported manufacturer: {manufacturer}")

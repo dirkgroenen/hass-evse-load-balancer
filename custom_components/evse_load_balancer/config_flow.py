@@ -87,7 +87,7 @@ def create_phase_power_data_schema(phase_count: int) -> vol.Schema:
     """Create a schema for the power collection step based on the phase count."""
     extra_schema = {}
 
-    # Limit through kets of CONF_PHASE_SENSORS and limit by phase_count
+    # Limit through each of CONF_PHASE_SENSORS and limit by phase_count
     for PHASE_KEY in [CONF_PHASE_KEY_ONE, CONF_PHASE_KEY_TWO, CONF_PHASE_KEY_THREE][:int(phase_count)]:
         # Create a section for each phase
         extra_schema[vol.Required(PHASE_KEY)] = section(

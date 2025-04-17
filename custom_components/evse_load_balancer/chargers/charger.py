@@ -5,6 +5,8 @@ from homeassistant.helpers.device_registry import (
     DeviceEntry,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
+from ..const import Phase
 
 
 class PhaseMode(Enum):
@@ -23,30 +25,32 @@ class Charger(ABC):
     def __init__(
         self,
         hass: HomeAssistant,
+        config_entry: ConfigEntry,
         device: DeviceEntry,
     ):
         """
         Initialize the Charger instance.
         """
         self.hass = hass
+        self.config_entry = config_entry
         self.device = device
 
     @abstractmethod
-    def set_phase_mode(self, mode: PhaseMode, phase: int):
+    def set_phase_mode(self, mode: PhaseMode, phase: Phase):
         """
         Set the phase mode of the charger.
         """
         pass
 
     @abstractmethod
-    async def set_current_limit(self, limit: int):
+    async def set_current_limit(self, limit: dict[Phase, int]):
         """
         Set the charger limit in amps.
         """
         pass
 
     @abstractmethod
-    def get_current_limit(self) -> Optional[int]:
+    def get_current_limit(self) -> dict[Phase, int]:
         """
         Set the charger limit in amps.
         """

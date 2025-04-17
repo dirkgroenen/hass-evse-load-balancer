@@ -25,8 +25,8 @@ DEFAULT_THROTTLE_SECONDS = 5
 
 
 class EVSELoadBalancerCoordinator:
-    _hysteresis_buffer: list[int] = []
-    _hysteresis_start: Optional[int] = None
+    _hysteresis_buffer: dict[Phase, list[int]] = {phase: None for phase in Phase}
+    _hysteresis_start: dict[Phase, Optional[int]] = {phase: None for phase in Phase}
 
     def __init__(self,
                  hass: HomeAssistant,
@@ -79,7 +79,15 @@ class EVSELoadBalancerCoordinator:
 
     def get_available_current_for_phase(self, phase: Phase) -> Optional[int]:
         active_current = self._meter.get_active_phase_current(phase)
-        return min(self._fuse_size, floor(self.fuse_size - active_current)) if active_current else None
+        return min(self._fuse_size, floor(self.fuse_size - active_current)) if active_current is not None else None
+
+    def _get_available_currents(self) -> Optional[dict[Phase, int]]:
+        """Check all phases and return the available current."""
+        available_currents = {phase: self.get_available_current_for_phase(phase) for phase in Phase}
+        if None in available_currents.values():
+            _LOGGER.error(f"One of the available currents is None: {available_currents}.")
+            return None
+        return available_currents
 
     @property
     def fuse_size(self) -> float:
@@ -87,10 +95,10 @@ class EVSELoadBalancerCoordinator:
 
     @Throttle(timedelta(seconds=DEFAULT_THROTTLE_SECONDS))
     async def _execute_update_cycle(self):
-        available_current = self._get_available_current()
+        available_currents = self._get_available_currents()
         current_charger_setting = self._charger.get_current_limit()
 
-        if available_current is None:
+        if available_currents is None:
             _LOGGER.warning("Available current unknown. Cannot adjust limit.")
             return
 
@@ -98,29 +106,31 @@ class EVSELoadBalancerCoordinator:
             _LOGGER.warning("Current charger current limit is not available. Cannot adjust limit.")
             return
 
-        _LOGGER.debug("Charger current available: %s, charger: %s", available_current, current_charger_setting)
+        _LOGGER.debug("Charger current available: %s, charger: %s", available_currents, current_charger_setting)
 
         # making data available to sensors
         self._async_update_sensors()
 
         # Run the actual charger update
         if self._should_check_charger():
-            if available_current < current_charger_setting:
-                await self._charger_limit_decrease(self._charger, available_current)
-            elif available_current > current_charger_setting:
-                await self._attempt_charger_limit_increase(self._charger, available_current)
-            else:
-                _LOGGER.debug("No update needed, charger current is within limit")
+            new_charger_settings = current_charger_setting.copy()
+            values_changed = False
+            for phase, available_current in available_currents.items():
+                charger_current = current_charger_setting.get(phase)
+                if available_current < charger_current:
+                    new_charger_settings[phase] = available_currents[phase]
+                    values_changed = True
+                elif available_current > charger_current:
+                    new_current = self._apply_phase_hysteresis(phase, available_current)
+                    if new_current is not None:
+                        new_charger_settings[phase] = new_current
+                        values_changed = True
 
-    def _get_available_current(self) -> Optional[int]:
-        """Check all phases and return the minimum available current."""
-        available_currents = [self.get_available_current_for_phase(phase) for phase in Phase]
-        # TODO: deal with unexpected none value in available_currents as that
-        # could produce a faulty charger setting
-        if None in available_currents:
-            _LOGGER.warning(f"One of the available currents is None: {available_currents}.")
-            return
-        return min(available_currents)
+            # Update the charger with the new settings
+            if values_changed:
+                _LOGGER.debug("New charger settings: %s", new_charger_settings)
+                self._emit_charger_event("set_current_limit", new_charger_settings)
+                await self._charger.set_current_limit(new_charger_settings)
 
     def _async_update_sensors(self):
         """Update all sensors"""
@@ -130,42 +140,39 @@ class EVSELoadBalancerCoordinator:
 
     def _should_check_charger(self) -> bool:
         """Check if the charger should be checked for current limit changes."""
-        return self._charger.is_charging()
+        return True  # return self._charger.is_charging()
 
-    async def _charger_limit_decrease(self, charger: Charger, current: int):
-        _LOGGER.info("Setting charger current to %d", current)
-        await charger.set_current_limit(current)
-        self._emit_charger_event("decreased", current)
-
-    async def _attempt_charger_limit_increase(self, charger: Charger, available_current: int):
+    def _apply_phase_hysteresis(self, phase: Phase, available_current: int) -> Optional[int]:
         now = int(time())
-        if self._hysteresis_start is None:
-            self._hysteresis_start = now
-            self._hysteresis_buffer = [available_current]
-            _LOGGER.debug("Hysteresis started at %s", self._hysteresis_start)
-        else:
-            self._hysteresis_buffer.append(available_current)
-            elapsed_min = (now - self._hysteresis_start) / 60
+        if self._hysteresis_start[phase] is None:
+            self._hysteresis_start[phase] = now
+            self._hysteresis_buffer[phase] = []
 
-            if elapsed_min >= of.EvseLoadBalancerOptionsFlow.get_option_value(self.config_entry, of.OPTION_CHARGE_LIMIT_HYSTERESIS):
-                smoothened_current = int(median(self._hysteresis_buffer))
-                _LOGGER.info("Hysteresis complete. Setting charger current to median: %d A", smoothened_current)
-                await charger.set_current_limit(smoothened_current)
-                self._emit_charger_event("increased", smoothened_current)
-                self._reset_hysteresis()
+        buffer = self._hysteresis_buffer[phase]
+        start_time = self._hysteresis_start[phase]
 
-    def _reset_hysteresis(self):
-        self._hysteresis_start = None
-        self._hysteresis_buffer.clear()
+        buffer.append(available_current)
+        elapsed_min = (now - start_time) / 60
 
-    def _emit_charger_event(self, action: str, new_limit: int) -> None:
+        if elapsed_min >= of.EvseLoadBalancerOptionsFlow.get_option_value(self.config_entry, of.OPTION_CHARGE_LIMIT_HYSTERESIS):
+            smoothened_current = int(median(self._hysteresis_buffer[phase]))
+            self._reset_hysteresis(phase)
+            return smoothened_current
+
+        return None
+
+    def _reset_hysteresis(self, phase: Phase):
+        self._hysteresis_start[phase] = None
+        self._hysteresis_buffer[phase].clear()
+
+    def _emit_charger_event(self, action: str, new_limits: dict[Phase, int]) -> None:
         """Emit an event to Home Assistant's device event log."""
         self.hass.bus.async_fire(
             "evse_load_balancer_charger_event",
             {
                 "device_id": self.config_entry.entry_id,
                 "action": action,
-                "new_limit": new_limit,
+                "new_limits": new_limits,
             }
         )
-        _LOGGER.info("Emitted charger event: action=%s, new_limit=%d", action, new_limit)
+        _LOGGER.info("Emitted charger event: action=%s, new_limits=%s", action, new_limits)

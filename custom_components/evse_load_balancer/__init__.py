@@ -28,8 +28,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up EVSE Load Balancer from a config entry."""
 
-    meter: Meter = await meter_factory(hass, entry.data.get(cf.CONF_CUSTOM_PHASE_CONFIG, False), entry.data.get(cf.CONF_METER_DEVICE))
-    charger: Charger = await charger_factory(hass, entry.data.get(cf.CONF_CHARGER_DEVICE))
+    meter: Meter = await meter_factory(hass, entry, entry.data.get(cf.CONF_CUSTOM_PHASE_CONFIG, False), entry.data.get(cf.CONF_METER_DEVICE))
+    charger: Charger = await charger_factory(hass, entry, entry.data.get(cf.CONF_CHARGER_DEVICE))
 
     coordinator = EVSELoadBalancerCoordinator(
         hass=hass,

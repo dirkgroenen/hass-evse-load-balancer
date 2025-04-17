@@ -8,6 +8,7 @@ from homeassistant.helpers.device_registry import (
 from ..ha_device import HaDevice
 from .charger import (Charger, PhaseMode)
 from ..const import CHARGER_DOMAIN_EASEE, Phase
+from homeassistant.config_entries import ConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,13 +20,24 @@ _LOGGER = logging.getLogger(__name__)
 class EaseeEntityMap:
     Status = "easee_status"
     DynamicChargerLimit = "dynamic_charger_limit"
+    DynamicCircuitLimit = "dynamic_circuit_limit"
     MaxChargerCurrent = "max_charger_limit"
 
+
+# Mapping attributes to known phases
+# @see https://github.com/nordicopen/easee_hass/blob/master/custom_components/easee/const.py
+EASEE_DYNAMIC_CIRCUIT_CURRENT_MAP = {
+    Phase.L1: "state_dynamicCircuitCurrentP1",
+    Phase.L2: "state_dynamicCircuitCurrentP2",
+    Phase.L3: "state_dynamicCircuitCurrentP3",
+}
 
 # Enum mapping for Status - Op Mode (109), which is mapped
 # by the easee_hass integration to strings
 # @see https://developer.easee.com/docs/enumerations
 # @see https://github.com/nordicopen/easee_hass/blob/master/custom_components/easee/const.py
+
+
 class EaseeStatusMap:
     Disconnected = "disconnected"
     AwaitingStart = "awaiting_start"
@@ -42,42 +54,43 @@ class EaseeCharger(HaDevice, Charger):
     Implementation of the Charger class for Easee chargers.
     """
 
-    def __init__(self, hass: HomeAssistant, device_entry: DeviceEntry):
+    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry, device_entry: DeviceEntry):
         HaDevice.__init__(self, hass, device_entry)
+        Charger.__init__(self, hass, config_entry, device_entry)
         self.refresh_entities()
 
-    def set_phase_mode(self, mode: PhaseMode, phase: int):
+    def set_phase_mode(self, mode: PhaseMode, phase: Phase):
         if mode not in PhaseMode:
             raise ValueError("Invalid mode. Must be 'single' or 'multi'.")
         # Implement the logic to set the phase mode for Easee chargers
 
     async def set_current_limit(self, limit: dict[Phase, int]):
-        if limit <= 0:
-            raise ValueError("Limit must be a positive integer.")
-
-        max_current = self._get_entity_state_by_translation_key(EaseeEntityMap.MaxChargerCurrent)
-        if max_current is not None and max_current < limit:
-            _LOGGER.debug("New current %s exceeds configured max charger current %s. Setting limit to %s ", limit, max_current, limit)
-            limit = max_current
+        # max_current = self._get_entity_state_by_translation_key(EaseeEntityMap.MaxChargerCurrent)
+        # if max_current is not None and max_current < limit:
+        #     _LOGGER.debug("New current %s exceeds configured max charger current %s. Setting limit to %s ", limit, max_current, limit)
+        #     limit = max_current
 
         await self.hass.services.async_call(
             domain=CHARGER_DOMAIN_EASEE,
             service="set_circuit_dynamic_limit",
             service_data={
                 "device_id": self.device_entry.id,
-                "current_p1": limit,
-                "current_p2": limit,
-                "current_p3": limit,
+                "current_p1": limit[Phase.L1],
+                "current_p2": limit[Phase.L2],
+                "current_p3": limit[Phase.L3],
                 "time_to_live": 0
             },
             blocking=True,
         )
 
-    def get_current_limit(self) -> Optional[int]:
-        return self._get_entity_state_by_translation_key(
-            EaseeEntityMap.DynamicChargerLimit,
-            int
+    def get_current_limit(self) -> dict[Phase, int]:
+        state_attrs = self._get_entity_state_attrs_by_translation_key(
+            EaseeEntityMap.DynamicCircuitLimit
         )
+        if state_attrs is None:
+            _LOGGER.warning("Dynamic Circuit Limit not available")
+            return {phase: None for phase in Phase}
+        return {phase: state_attrs.get(EASEE_DYNAMIC_CIRCUIT_CURRENT_MAP[phase], None) for phase in Phase}
 
     def _get_status(self) -> Optional[str]:
         return self._get_entity_state_by_translation_key(

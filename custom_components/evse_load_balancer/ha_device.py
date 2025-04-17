@@ -60,12 +60,12 @@ class HaDevice():
             _LOGGER.debug("State not found for entity %s", entity_id)
             return None
         try:
-            return parser_fn(state.state)
+            return parser_fn(state.state) if parser_fn else state.state
         except ValueError:
             _LOGGER.warning("State for entity %s can't be parsed: %s", entity_id, state.state)
             return None
 
-    def _get_entity_state_attrs(self, entity_id: str) -> Optional[Any]:
+    def _get_entity_state_attrs(self, entity_id: str) -> Optional[dict]:
         """
         Get the state attributes for a given entity
         """
@@ -81,3 +81,10 @@ class HaDevice():
         """
         entity_id = self._get_entity_id_by_translation_key(entity_translation_key)
         return self._get_entity_state(entity_id, parser_fn)
+
+    def _get_entity_state_attrs_by_translation_key(self, entity_translation_key: str) -> Optional[dict]:
+        """
+        Get the state attributes for the entity for a given translation key.
+        """
+        entity_id = self._get_entity_id_by_translation_key(entity_translation_key)
+        return self._get_entity_state_attrs(entity_id)

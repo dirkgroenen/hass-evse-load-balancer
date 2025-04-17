@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from homeassistant.core import HomeAssistant
 from ..const import Phase
 from typing import Optional
+from homeassistant.config_entries import ConfigEntry
 
 
 class Meter(ABC):
@@ -12,11 +13,13 @@ class Meter(ABC):
     def __init__(
         self,
         hass: HomeAssistant,
+        config_entry: ConfigEntry
     ):
         """
         Initialize the Meter instance.
         """
         self.hass = hass
+        self.config_entry = config_entry
 
     @abstractmethod
     def get_active_phase_current(self, phase: Phase) -> Optional[int]:
