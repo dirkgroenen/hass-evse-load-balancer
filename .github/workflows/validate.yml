@@ -1,4 +1,4 @@
-name: Validate
+name: Validate with Hassfest and HACS
 
 on:
   workflow_dispatch:
