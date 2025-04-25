@@ -1,0 +1,6 @@
+{
+  "name": "EVSE Load Balancer",
+  "homeassistant": "2024.9.2",
+  "filename": "evse_load_balancer.zip",
+  "zip_release": true
+}
