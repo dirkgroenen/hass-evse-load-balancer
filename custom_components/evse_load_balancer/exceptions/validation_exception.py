@@ -1,4 +1,7 @@
-class ValidationException(Exception):
+"""Validation Exception."""
+
+
+class ValidationExceptionError(Exception):
     """Exception raised for validation errors."""
 
     def __init__(self, base: str, key: str) -> None:

@@ -1,9 +1,10 @@
+"""Main coordinator for load balacer."""
 import logging
 from datetime import datetime, timedelta
 from math import floor
 from statistics import median
 from time import time
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -12,7 +13,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_DEVICE_ID
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import Throttle
 
@@ -30,14 +30,19 @@ from .const import (
 )
 from .meters.meter import Meter, Phase
 
+if TYPE_CHECKING:
+    from homeassistant.helpers.device_registry import DeviceEntry
+
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_THROTTLE_SECONDS = 5
 
 
 class EVSELoadBalancerCoordinator:
-    _hysteresis_buffer: dict[Phase, list[int]] = {phase: None for phase in Phase}
-    _hysteresis_start: dict[Phase, Optional[int]] = {phase: None for phase in Phase}
+    """Coordinator for the EVSE Load Balancer."""
+
+    _hysteresis_buffer: dict[Phase, list[int]] = dict.fromkeys(Phase)
+    _hysteresis_start: dict[Phase, int | None] = dict.fromkeys(Phase)
 
     _last_check_timestamp: str = None
 
@@ -48,6 +53,7 @@ class EVSELoadBalancerCoordinator:
         meter: Meter,
         charger: Charger,
     ) -> None:
+        """Initialize the coordinator."""
         self.hass: HomeAssistant = hass
         self.config_entry: ConfigEntry = config_entry
 
@@ -65,6 +71,7 @@ class EVSELoadBalancerCoordinator:
         )
 
     async def async_setup(self) -> None:
+        """Set up the coordinator."""
         tracked_entities = self._meter.get_tracking_entities()
         _LOGGER.debug("Tracking entities: %s", tracked_entities)
         self._unsub.append(
@@ -77,24 +84,28 @@ class EVSELoadBalancerCoordinator:
         )
 
     async def async_unload(self) -> None:
+        """Unload the coordinator."""
         for unsub in self._unsub:
             unsub()
         self._unsub.clear()
 
     @callback
-    def _handle_meter_state_change(self, event):
+    def _handle_meter_state_change(self, event) -> None:
         self.hass.async_create_task(self._execute_update_cycle())
 
-    async def _handle_options_update(self, hass: HomeAssistant, entry: ConfigEntry):
+    async def _handle_options_update(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         await hass.config_entries.async_reload(entry.entry_id)
 
     def register_sensor(self, sensor: SensorEntity) -> None:
+        """Register a sensor to be updated."""
         self._sensors.append(sensor)
 
     def unregister_sensor(self, sensor: SensorEntity) -> None:
+        """Unregister a sensor."""
         self._sensors.remove(sensor)
 
-    def get_available_current_for_phase(self, phase: Phase) -> Optional[int]:
+    def get_available_current_for_phase(self, phase: Phase) -> int | None:
+        """Get the available current for a given phase."""
         active_current = self._meter.get_active_phase_current(phase)
         return (
             max(0, min(self._fuse_size, floor(self.fuse_size - active_current)))
@@ -102,20 +113,20 @@ class EVSELoadBalancerCoordinator:
             else None
         )
 
-    def _get_available_currents(self) -> Optional[dict[Phase, int]]:
+    def _get_available_currents(self) -> dict[Phase, int] | None:
         """Check all phases and return the available current."""
         available_currents = {
             phase: self.get_available_current_for_phase(phase) for phase in Phase
         }
         if None in available_currents.values():
-            _LOGGER.error(
-                f"One of the available currents is None: {available_currents}."
-            )
+            _LOGGER.error("One of the available currents is None: %s.",
+                          available_currents)
             return None
         return available_currents
 
     @property
     def fuse_size(self) -> float:
+        """Get the fuse size."""
         return self.config_entry.data.get(cf.CONF_FUSE_SIZE, 0)
 
     @property
@@ -123,8 +134,7 @@ class EVSELoadBalancerCoordinator:
         """Get the load balancing state."""
         if self._should_check_charger():
             return COORDINATOR_STATE_MONITORING_LOAD
-        else:
-            return COORDINATOR_STATE_AWAITING_CHARGER
+        return COORDINATOR_STATE_AWAITING_CHARGER
 
     @property
     def get_last_check_timestamp(self) -> str:
@@ -132,7 +142,8 @@ class EVSELoadBalancerCoordinator:
         return self._last_check_timestamp
 
     @Throttle(timedelta(seconds=DEFAULT_THROTTLE_SECONDS))
-    async def _execute_update_cycle(self):
+    async def _execute_update_cycle(self) -> None:
+        """Execute the update cycle for the charger."""
         self._last_check_timestamp = datetime.now().astimezone()
         available_currents = self._get_available_currents()
         current_charger_setting = self._charger.get_current_limit()
@@ -179,8 +190,7 @@ class EVSELoadBalancerCoordinator:
                 )
                 await self._charger.set_current_limit(new_charger_settings)
 
-    def _async_update_sensors(self):
-        """Update all sensors"""
+    def _async_update_sensors(self) -> None:
         for sensor in self._sensors:
             if sensor.enabled:
                 sensor.async_write_ha_state()
@@ -191,7 +201,7 @@ class EVSELoadBalancerCoordinator:
 
     def _apply_phase_hysteresis(
         self, phase: Phase, available_current: int
-    ) -> Optional[int]:
+    ) -> int | None:
         now = int(time())
         if self._hysteresis_start[phase] is None:
             self._hysteresis_start[phase] = now
@@ -212,7 +222,7 @@ class EVSELoadBalancerCoordinator:
 
         return None
 
-    def _reset_hysteresis(self, phase: Phase):
+    def _reset_hysteresis(self, phase: Phase) -> None:
         self._hysteresis_start[phase] = None
         self._hysteresis_buffer[phase].clear()
 

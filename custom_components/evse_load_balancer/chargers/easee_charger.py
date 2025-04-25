@@ -1,14 +1,15 @@
-import logging
-from typing import Optional
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import (
-    DeviceEntry,
-)
+"""Easee Charger implementation."""
 
-from ..ha_device import HaDevice
-from .charger import Charger, PhaseMode
-from ..const import CHARGER_DOMAIN_EASEE, Phase
+import logging
+
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceEntry
+
+from custom_components.evse_load_balancer.const import CHARGER_DOMAIN_EASEE, Phase
+from custom_components.evse_load_balancer.ha_device import HaDevice
+
+from .charger import Charger, PhaseMode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,6 +19,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class EaseeEntityMap:
+    """Map Easee entities to their respective attributes."""
+
     Status = "easee_status"
     DynamicChargerLimit = "dynamic_charger_limit"
     DynamicCircuitLimit = "dynamic_circuit_limit"
@@ -39,6 +42,8 @@ EASEE_DYNAMIC_CIRCUIT_CURRENT_MAP = {
 
 
 class EaseeStatusMap:
+    """Map Easee charger statuses to their respective string representations."""
+
     Disconnected = "disconnected"
     AwaitingStart = "awaiting_start"
     Charging = "charging"
@@ -50,30 +55,35 @@ class EaseeStatusMap:
 
 
 class EaseeCharger(HaDevice, Charger):
-    """
-    Implementation of the Charger class for Easee chargers.
-    """
+    """Implementation of the Charger class for Easee chargers."""
 
     def __init__(
         self, hass: HomeAssistant, config_entry: ConfigEntry, device_entry: DeviceEntry
-    ):
+    ) -> None:
+        """Initialize the Easee charger."""
         HaDevice.__init__(self, hass, device_entry)
         Charger.__init__(self, hass, config_entry, device_entry)
         self.refresh_entities()
 
-    def set_phase_mode(self, mode: PhaseMode, phase: Phase):
+    def set_phase_mode(self, mode: PhaseMode, phase: Phase) -> None:
+        """Set the phase mode of the charger."""
         if mode not in PhaseMode:
-            raise ValueError("Invalid mode. Must be 'single' or 'multi'.")
+            msg = "Invalid mode. Must be 'single' or 'multi'."
+            raise ValueError(msg)
         # Implement the logic to set the phase mode for Easee chargers
 
-    async def set_current_limit(self, limit: dict[Phase, int]):
+    async def set_current_limit(self, limit: dict[Phase, int]) -> None:
+        """Set the current limit for the charger."""
         max_current = self._get_entity_state_by_translation_key(
             EaseeEntityMap.MaxChargerCurrent
         )
         for phase, current in limit.items():
             if current > max_current:
                 _LOGGER.debug(
-                    "New current for phase %s (%s) exceeds configured max charger current %s. Setting limit to %s",
+                    (
+                        "New current for phase %s (%s) exceeds configured max charger "
+                        "current %s. Setting limit to %s"
+                    ),
                     phase,
                     current,
                     max_current,
@@ -95,26 +105,25 @@ class EaseeCharger(HaDevice, Charger):
         )
 
     def get_current_limit(self) -> dict[Phase, int]:
+        """See base class for correct implementation of this method."""
         state_attrs = self._get_entity_state_attrs_by_translation_key(
             EaseeEntityMap.DynamicCircuitLimit
         )
         if state_attrs is None:
             _LOGGER.warning("Dynamic Circuit Limit not available")
-            return {phase: None for phase in Phase}
+            return dict.fromkeys(Phase)
         return {
             phase: state_attrs.get(EASEE_DYNAMIC_CIRCUIT_CURRENT_MAP[phase], None)
             for phase in Phase
         }
 
-    def _get_status(self) -> Optional[str]:
+    def _get_status(self) -> str | None:
         return self._get_entity_state_by_translation_key(
             EaseeEntityMap.Status,
         )
 
     def car_connected(self) -> bool:
-        """
-        See abstract Charger class for correct implementation of car_connected()
-        """
+        """See abstract Charger class for correct implementation of this method."""
         status = self._get_status()
         return status in [
             EaseeStatusMap.AwaitingStart,
@@ -124,10 +133,7 @@ class EaseeCharger(HaDevice, Charger):
         ]
 
     def is_charging(self) -> bool:
-        """
-        See abstract Charger class for correct implementation of is_charging()
-        """
-        return True
+        """See abstract Charger class for correct implementation of this method."""
         status = self._get_status()
         return status in [
             EaseeStatusMap.Charging,

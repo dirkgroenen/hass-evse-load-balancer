@@ -25,6 +25,8 @@ EVENT_ATTR_NEW_LIMITS = "new_limits"
 
 
 class Phase(Enum):
+    """Enum for the phases."""
+
     L1 = "l1"
     L2 = "l2"
     L3 = "l3"

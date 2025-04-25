@@ -1,15 +1,17 @@
+"""DSMR Meter implementation."""
 import logging
-from typing import Optional
+from math import floor
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import (
     DeviceEntry,
 )
-from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
 
-from ..ha_device import HaDevice
+from custom_components.evse_load_balancer import config_flow as cf
+from custom_components.evse_load_balancer.ha_device import HaDevice
+
 from .meter import Meter, Phase
-from .. import config_flow as cf
-from math import floor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,24 +37,18 @@ ENTITY_REGISTRATION_MAP: dict[str, dict[str, str]] = {
 
 
 class DsmrMeter(Meter, HaDevice):
-    """
-    DSMR Meter implementation of the Meter class.
-    """
+    """DSMR Meter implementation of the Meter class."""
 
     def __init__(
         self, hass: HomeAssistant, config_entry: ConfigEntry, device_entry: DeviceEntry
-    ):
-        """
-        Initialize the Meter instance.
-        """
+    ) -> None:
+        """Initialize the Meter instance."""
         Meter.__init__(self, hass, config_entry)
         HaDevice.__init__(self, hass, device_entry)
         self.refresh_entities()
 
-    def get_active_phase_current(self, phase: Phase) -> Optional[int]:
-        """
-        Returns the active current on a given phase
-        """
+    def get_active_phase_current(self, phase: Phase) -> int | None:
+        """Return the active current on a given phase."""
         active_power = self.get_active_phase_power(phase)
         voltage_state = self._get_entity_state_for_phase_sensor(
             phase, cf.CONF_PHASE_SENSOR_VOLTAGE
@@ -60,7 +56,8 @@ class DsmrMeter(Meter, HaDevice):
 
         if None in [active_power, voltage_state]:
             _LOGGER.warning(
-                "Missing states for one of phase %s: active_power: %s, voltage: %s. Is it enabled?",
+                ("Missing states for one of phase %s: active_power: %s, ",
+                 "voltage: %s. Are the entities enabled?"),
                 phase,
                 active_power,
                 voltage_state,
@@ -69,10 +66,8 @@ class DsmrMeter(Meter, HaDevice):
         # convert kW to W in order to calculate the current
         return floor((active_power * 1000) / voltage_state) if voltage_state else None
 
-    def get_active_phase_power(self, phase: Phase) -> Optional[float]:
-        """
-        Returns the active power on a given phase.
-        """
+    def get_active_phase_power(self, phase: Phase) -> float | None:
+        """Return the active power on a given phase."""
         consumption_state = self._get_entity_state_for_phase_sensor(
             phase, cf.CONF_PHASE_SENSOR_CONSUMPTION
         )
@@ -91,10 +86,7 @@ class DsmrMeter(Meter, HaDevice):
         return consumption_state - production_state
 
     def get_tracking_entities(self) -> list[str]:
-        """
-        Returns a list of entity IDs that should be tracked for this meter
-        to function properly.
-        """
+        """Return a list of entity IDs that should be tracked for this meter."""
         # Grab each phase in ENTITY_REGISTRATION_MAP and get the values. Return
         # a flattened list of all the values.
         translation_keys = [
@@ -108,20 +100,16 @@ class DsmrMeter(Meter, HaDevice):
 
     def _get_entity_id_for_phase_sensor(
         self, phase: Phase, sensor_const: str
-    ) -> Optional[float]:
-        """
-        Get the state of the entity for a given phase and translation key.
-        """
+    ) -> float | None:
+        """Get the state of the entity for a given phase and translation key."""
         return self._get_entity_id_by_translation_key(
             self._get_entity_map_for_phase(phase)[sensor_const]
         )
 
     def _get_entity_state_for_phase_sensor(
         self, phase: Phase, sensor_const: str
-    ) -> Optional[float]:
-        """
-        Get the state of the entity for a given phase and translation key.
-        """
+    ) -> float | None:
+        """Get the state of the entity for a given phase and translation key."""
         entity_id = self._get_entity_id_for_phase_sensor(phase, sensor_const)
         return self._get_entity_state(entity_id, float)
 
@@ -134,5 +122,6 @@ class DsmrMeter(Meter, HaDevice):
         elif phase == Phase.L3:
             entity_map = ENTITY_REGISTRATION_MAP[cf.CONF_PHASE_KEY_THREE]
         else:
-            raise ValueError(f"Invalid phase: {phase}")
+            msg = f"Invalid phase: {phase}"
+            raise ValueError(msg)
         return entity_map

@@ -1,6 +1,7 @@
 """EVSE Load Balancer sensor platform."""
 
 import logging
+from collections.abc import Callable
 
 from homeassistant import config_entries, core
 from homeassistant.components.sensor import (
@@ -9,18 +10,18 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
 )
 
-from .load_balancer_sensor import LoadBalancerSensor
-from .load_balancer_phase_sensor import (
-    LoadBalancerPhaseSensor,
-    SENSOR_KEY_AVAILABLE_CURRENT_L1,
-    SENSOR_KEY_AVAILABLE_CURRENT_L2,
-    SENSOR_KEY_AVAILABLE_CURRENT_L3,
-)
-from .coordinator import EVSELoadBalancerCoordinator
 from .const import (
     COORDINATOR_STATES,
     DOMAIN,
 )
+from .coordinator import EVSELoadBalancerCoordinator
+from .load_balancer_phase_sensor import (
+    SENSOR_KEY_AVAILABLE_CURRENT_L1,
+    SENSOR_KEY_AVAILABLE_CURRENT_L2,
+    SENSOR_KEY_AVAILABLE_CURRENT_L3,
+    LoadBalancerPhaseSensor,
+)
+from .load_balancer_sensor import LoadBalancerSensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,9 +29,9 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: core.HomeAssistant,
     config_entry: config_entries.ConfigEntry,
-    async_add_entities,
-):
-    """Setup sensors from a config entry created in the integrations UI."""
+    async_add_entities: Callable,
+) -> None:
+    """Set up sensors based on config entry."""
     coordinator: EVSELoadBalancerCoordinator = hass.data[DOMAIN][config_entry.entry_id]
 
     sensors = [

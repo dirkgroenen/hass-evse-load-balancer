@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
-from homeassistant.config_entries import OptionsFlow, ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry, OptionsFlow
 from homeassistant.helpers.selector import NumberSelector
+
 from .exceptions.validation_exception import ValidationException
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,6 +24,7 @@ DEFAULT_VALUES: dict[str, Any] = {OPTION_CHARGE_LIMIT_HYSTERESIS: 5}
 async def validate_init_input(
     hass: HomeAssistant, data: dict[str, Any]
 ) -> dict[str, Any]:
+    """Validate the input data for the options flow."""
     return data
 
 
@@ -29,6 +33,7 @@ class EvseLoadBalancerOptionsFlow(OptionsFlow):
 
     @staticmethod
     def get_option_value(config_entry: ConfigEntry, key: str) -> Any:
+        """Get the value of an option from the config entry."""
         return config_entry.options.get(key, DEFAULT_VALUES[key])
 
     def _options_schema(self) -> vol.Schema:

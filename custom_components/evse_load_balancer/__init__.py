@@ -4,19 +4,22 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-
-from .chargers import charger_factory, Charger
-from .meters import meter_factory, Meter
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
+
 from . import config_flow as cf
+from .chargers import Charger, charger_factory
 from .const import DOMAIN
 from .coordinator import EVSELoadBalancerCoordinator
+from .meters import Meter, meter_factory
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
 ]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -27,7 +30,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up EVSE Load Balancer from a config entry."""
-
     meter: Meter = await meter_factory(
         hass,
         entry,

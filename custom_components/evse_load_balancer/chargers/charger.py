@@ -1,78 +1,66 @@
+"""Base Charger Class."""
+
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional
-from homeassistant.helpers.device_registry import (
-    DeviceEntry,
-)
-from homeassistant.core import HomeAssistant
+
 from homeassistant.config_entries import ConfigEntry
-from ..const import Phase
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceEntry
+
+from custom_components.evse_load_balancer.const import Phase
 
 
 class PhaseMode(Enum):
-    """
-    Enum to represent the phase mode of the charger.
-    """
+    """Enum to represent the phase mode of the charger."""
 
     SINGLE = "single"
     MULTI = "multi"
 
 
 class Charger(ABC):
-    """
-    Base class for all chargers. Defines the required interface for all charger implementations.
-    """
+    """Base class for all chargers."""
 
     def __init__(
         self,
         hass: HomeAssistant,
         config_entry: ConfigEntry,
         device: DeviceEntry,
-    ):
-        """
-        Initialize the Charger instance.
-        """
+    ) -> None:
+        """Initialize the Charger instance."""
         self.hass = hass
         self.config_entry = config_entry
         self.device = device
 
     @abstractmethod
-    def set_phase_mode(self, mode: PhaseMode, phase: Phase):
-        """
-        Set the phase mode of the charger.
-        """
-        pass
+    def set_phase_mode(self, mode: PhaseMode, phase: Phase) -> None:
+        """Set the phase mode of the charger."""
 
     @abstractmethod
-    async def set_current_limit(self, limit: dict[Phase, int]):
-        """
-        Set the charger limit in amps.
-        """
-        pass
+    async def set_current_limit(self, limit: dict[Phase, int]) -> None:
+        """Set the charger limit in amps."""
 
     @abstractmethod
     def get_current_limit(self) -> dict[Phase, int]:
         """
-        Set the charger limit in amps.
+        Get the current limit of the charger in amps.
+
+        This should return the current limit for each phase.
+        If the charger does not support this, return None for all phases.
         """
-        pass
 
     @abstractmethod
     def car_connected(self) -> bool:
         """
-        Returns whether the car is connected to the charger and therefore
-        ready to receive a charge.  This does not mean that the car is
+        Return whether the car is connected to the charger and ready to receive charge.
+
+        This does not mean that the car is
         actually charging. Combine with is_charging() to determine if the car
         is already charging.
 
-        When the connected car is not authorised (and therefore the charger is not ready)
-        we consider it a "disconnected" state.
+        When the connected car is not authorised (and therefore the charger is not
+        ready) we consider it a "disconnected" state.
         """
-        pass
 
     @abstractmethod
     def is_charging(self) -> bool:
-        """
-        Returns whether we are charging the car.
-        """
-        pass
+        """Return whether we are charging the car."""

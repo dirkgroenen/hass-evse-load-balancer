@@ -7,6 +7,10 @@ select = [
     "ALL",
 ]
 
+exclude = [
+    "tests",
+]
+
 ignore = [
     "ANN101", # Missing type annotation for `self` in method
     "ANN401", # Dynamically typed expressions (typing.Any) are disallowed

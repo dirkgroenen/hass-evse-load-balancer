@@ -5,7 +5,7 @@
     "@dirkgroenen"
   ],
   "config_flow": true,
-  "documentation": "https://www.home-assistant.io/integrations/energylabs",
+  "documentation": "https://github.com/energylabsnl/hass_evse_load_balancer",
   "iot_class": "local_push",
   "requirements": [],
   "integration_type": "device",

@@ -5,32 +5,29 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import voluptuous as vol
-from homeassistant.core import callback
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.core import HomeAssistant
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.selector import (
-    EntitySelector,
-    EntitySelectorConfig,
-    DeviceSelector,
-    NumberSelector,
-    DeviceSelectorConfig,
-)
+import voluptuous as vol
 from homeassistant.components.sensor import (
     SensorDeviceClass,
 )
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
-
-from .options_flow import EvseLoadBalancerOptionsFlow
-
-from .exceptions.validation_exception import ValidationException
+from homeassistant.helpers.selector import (
+    DeviceSelector,
+    DeviceSelectorConfig,
+    EntitySelector,
+    EntitySelectorConfig,
+    NumberSelector,
+)
 
 from .const import (
     DOMAIN,
-    SUPPORTED_METER_DEVICE_DOMAINS,
     SUPPORTED_CHARGER_DEVICE_DOMAINS,
+    SUPPORTED_METER_DEVICE_DOMAINS,
 )
+from .exceptions.validation_exception import ValidationExceptionError
+from .options_flow import EvseLoadBalancerOptionsFlow
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -81,10 +78,11 @@ STEP_POWER_DATA_SCHEMA = {}
 async def validate_init_input(
     hass: HomeAssistant, data: dict[str, Any]
 ) -> dict[str, Any]:
+    """Validate the user input for the initial step."""
     if not data.get(CONF_METER_DEVICE) and not data.get(CONF_CUSTOM_PHASE_CONFIG):
         # If the user has selected a custom phase configuration, but not a meter device,
         # we need to show an error message.
-        raise ValidationException("base", "metering_selection_required")
+        raise ValidationExceptionError("base", "metering_selection_required")  # noqa: EM101
 
     return data
 
@@ -92,6 +90,7 @@ async def validate_init_input(
 async def validate_power_input(
     hass: HomeAssistant, data: dict[str, Any]
 ) -> dict[str, Any]:
+    """Validate the user input for the power collection step."""
     # Return info that you want to store in the config entry.
     return data
 
@@ -101,11 +100,11 @@ def create_phase_power_data_schema(phase_count: int) -> vol.Schema:
     extra_schema = {}
 
     # Limit through each of CONF_PHASE_SENSORS and limit by phase_count
-    for PHASE_KEY in [CONF_PHASE_KEY_ONE, CONF_PHASE_KEY_TWO, CONF_PHASE_KEY_THREE][
+    for phase_key in [CONF_PHASE_KEY_ONE, CONF_PHASE_KEY_TWO, CONF_PHASE_KEY_THREE][
         : int(phase_count)
     ]:
         # Create a section for each phase
-        extra_schema[vol.Required(PHASE_KEY)] = section(
+        extra_schema[vol.Required(phase_key)] = section(
             vol.Schema(
                 {
                     vol.Required(CONF_PHASE_SENSOR_CONSUMPTION): EntitySelector(
@@ -148,7 +147,7 @@ class EvseLoadBalancerConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(config_entry: ConfigEntry) -> EvseLoadBalancerOptionsFlow:  # noqa: ARG004
         """Get the options flow for this handler."""
         return EvseLoadBalancerOptionsFlow()
 
@@ -160,17 +159,16 @@ class EvseLoadBalancerConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 input_data = await validate_init_input(self.hass, user_input)
-            except ValidationException as ex:
+            except ValidationExceptionError as ex:
                 errors[ex.base] = ex.key
             if not errors:
                 self.data = input_data
                 if self.data.get(CONF_CUSTOM_PHASE_CONFIG, False):
                     return await self.async_step_power()
-                else:
-                    return self.async_create_entry(
-                        title="EVSE Load Balancer",
-                        data=self.data,
-                    )
+                return self.async_create_entry(
+                    title="EVSE Load Balancer",
+                    data=self.data,
+                )
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_INIT_SCHEMA, errors=errors
@@ -179,7 +177,7 @@ class EvseLoadBalancerConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_power(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle the power collection step"""
+        """Handle the power collection step."""
         errors: dict[str, str] = {}
         if user_input is not None:
             try:

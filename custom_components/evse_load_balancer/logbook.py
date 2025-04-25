@@ -1,3 +1,4 @@
+"""Logbook implementation."""
 from collections.abc import Callable
 from typing import Any
 
@@ -38,7 +39,8 @@ def async_describe_events(
                 ", ".join(f"{phase}: {limit}A" for phase, limit in new_limits.items()),
             )
         else:
-            raise ValueError(f"Unknown action: {action}")
+            msg = f"Unknown action: {action}"
+            raise ValueError(msg)
 
         return {
             LOGBOOK_ENTRY_NAME: "EVSE Load Balancer",
