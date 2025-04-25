@@ -2,7 +2,7 @@
 
 from homeassistant.setup import async_setup_component
 
-from ..const import DOMAIN
+from custom_components.evse_load_balancer.const import DOMAIN
 
 
 async def test_async_setup(hass):
