@@ -31,6 +31,14 @@ During setup of the EVSE Load Balancer integration it expects to be provided wit
 
 ## Installation
 
+### HACS installation
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=dirkgroenen&repository=hass-evse-load-balancer)
+
+1. Search for "EVSE Load Balancer" in **HACS > Integrations**
+2. Download the integration and restart Home Assistant.
+3. Add the integration via **Settings > Devices & Services > Add Integration** and search for "EVSE Load Balancer."
+
+### Manual
 1. Copy the `custom_components/evse_load_balancer` folder to your Home Assistant `custom_components` directory.
 2. Restart Home Assistant.
 3. Add the integration via **Settings > Devices & Services > Add Integration** and search for "EVSE Load Balancer."
