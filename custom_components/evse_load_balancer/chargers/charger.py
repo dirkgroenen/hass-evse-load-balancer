@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntry
 
-from custom_components.evse_load_balancer.const import Phase
+from ..const import Phase
 
 
 class PhaseMode(Enum):

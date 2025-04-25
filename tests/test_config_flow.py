@@ -4,7 +4,7 @@ from unittest import mock
 
 from homeassistant import config_entries
 
-from custom_components.evse_load_balancer import config_flow, const
+from .. import config_flow, const
 
 
 async def test_form(hass):

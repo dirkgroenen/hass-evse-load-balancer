@@ -8,9 +8,8 @@ from homeassistant.helpers.device_registry import (
     DeviceEntry,
 )
 
-from custom_components.evse_load_balancer import config_flow as cf
-from custom_components.evse_load_balancer.ha_device import HaDevice
-
+from .. import config_flow as cf
+from ..ha_device import HaDevice
 from .meter import Meter, Phase
 
 _LOGGER = logging.getLogger(__name__)

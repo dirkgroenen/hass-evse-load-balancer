@@ -5,11 +5,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
-from custom_components.evse_load_balancer.const import (
+from ..const import (
     METER_DOMAIN_DSMR,
     SUPPORTED_METER_DEVICE_DOMAINS,
 )
-
 from .custom_meter import CustomMeter
 from .dsmr_meter import DsmrMeter
 from .meter import Meter

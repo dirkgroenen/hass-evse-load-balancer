@@ -5,11 +5,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
-from custom_components.evse_load_balancer.const import (
+from ..const import (  # noqa: TID252
     CHARGER_DOMAIN_EASEE,
     SUPPORTED_CHARGER_DEVICE_DOMAINS,
 )
-
 from .charger import Charger
 from .easee_charger import EaseeCharger
 

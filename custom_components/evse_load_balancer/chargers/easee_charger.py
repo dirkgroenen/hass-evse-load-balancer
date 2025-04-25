@@ -6,9 +6,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntry
 
-from custom_components.evse_load_balancer.const import CHARGER_DOMAIN_EASEE, Phase
-from custom_components.evse_load_balancer.ha_device import HaDevice
-
+from ..const import CHARGER_DOMAIN_EASEE, Phase
+from ..ha_device import HaDevice
 from .charger import Charger, PhaseMode
 
 _LOGGER = logging.getLogger(__name__)

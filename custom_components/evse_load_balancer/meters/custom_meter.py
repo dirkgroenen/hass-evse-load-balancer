@@ -5,8 +5,7 @@ from math import floor
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from custom_components.evse_load_balancer import config_flow as cf
-
+from .. import config_flow as cf
 from .meter import Meter, Phase
 
 _LOGGER = logging.getLogger(__name__)

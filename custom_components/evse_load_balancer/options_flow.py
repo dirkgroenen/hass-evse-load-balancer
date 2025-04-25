@@ -9,7 +9,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, OptionsFlow
 from homeassistant.helpers.selector import NumberSelector
 
-from .exceptions.validation_exception import ValidationException
+from .exceptions.validation_exception import ValidationExceptionError
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -65,7 +65,7 @@ class EvseLoadBalancerOptionsFlow(OptionsFlow):
         if user_input is not None:
             try:
                 input_data = await validate_init_input(self.hass, user_input)
-            except ValidationException as ex:
+            except ValidationExceptionError as ex:
                 errors[ex.base] = ex.key
             if not errors:
                 return self.async_create_entry(title="", data=input_data)

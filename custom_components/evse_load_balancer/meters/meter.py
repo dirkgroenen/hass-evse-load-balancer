@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from custom_components.evse_load_balancer.const import Phase
+from ..const import Phase
 
 
 class Meter(ABC):
