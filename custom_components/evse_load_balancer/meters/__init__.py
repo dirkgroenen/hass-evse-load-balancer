@@ -2,13 +2,9 @@ from .meter import Meter
 from .custom_meter import CustomMeter
 from .dsmr_meter import DsmrMeter
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import (
-    DeviceEntry
-)
+from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers import (
-    device_registry as dr
-)
+from homeassistant.helpers import device_registry as dr
 from ..const import (
     METER_DOMAIN_DSMR,
     SUPPORTED_METER_DEVICE_DOMAINS,
@@ -17,7 +13,12 @@ from ..const import (
 CONST_CUSTOM_METER = "custom_meter"
 
 
-async def meter_factory(hass: HomeAssistant, config_entry: ConfigEntry, custom_config: bool, device_entry_id: str) -> Meter:
+async def meter_factory(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    custom_config: bool,
+    device_entry_id: str,
+) -> Meter:
     """
     Factory function to create a charger instance based on the manufacturer.
     """
@@ -32,7 +33,14 @@ async def meter_factory(hass: HomeAssistant, config_entry: ConfigEntry, custom_c
     if not device:
         raise ValueError(f"Device with ID {device_entry_id} not found in registry.")
 
-    manufacturer = next((domain for [domain, _] in device.identifiers if domain in SUPPORTED_METER_DEVICE_DOMAINS), None)
+    manufacturer = next(
+        (
+            domain
+            for [domain, _] in device.identifiers
+            if domain in SUPPORTED_METER_DEVICE_DOMAINS
+        ),
+        None,
+    )
     if manufacturer == METER_DOMAIN_DSMR:
         return DsmrMeter(hass, config_entry, device)
     else:

@@ -14,7 +14,7 @@ from .const import (
     EVENT_ATTR_ACTION,
     EVENT_ATTR_NEW_LIMITS,
     EVSE_LOAD_BALANCER_COORDINATOR_EVENT,
-    Phase
+    Phase,
 )
 
 
@@ -33,9 +33,10 @@ def async_describe_events(
 
         if action == EVENT_ACTION_NEW_CHARGER_LIMITS:
             new_limits: dict[Phase, int] = data.get(EVENT_ATTR_NEW_LIMITS, {})
-            message = ("charger limits set to: ",
-                       ", ".join(f"{phase}: {limit}A" for phase, limit in new_limits.items())
-                       )
+            message = (
+                "charger limits set to: ",
+                ", ".join(f"{phase}: {limit}A" for phase, limit in new_limits.items()),
+            )
         else:
             raise ValueError(f"Unknown action: {action}")
 
@@ -45,4 +46,6 @@ def async_describe_events(
             LOGBOOK_ENTRY_DOMAIN: DOMAIN,
         }
 
-    async_describe_event(DOMAIN, EVSE_LOAD_BALANCER_COORDINATOR_EVENT, async_describe_charger_event)
+    async_describe_event(
+        DOMAIN, EVSE_LOAD_BALANCER_COORDINATOR_EVENT, async_describe_charger_event
+    )

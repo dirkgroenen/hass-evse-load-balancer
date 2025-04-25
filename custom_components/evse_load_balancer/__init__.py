@@ -5,8 +5,8 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 
-from .chargers import (charger_factory, Charger)
-from .meters import (meter_factory, Meter)
+from .chargers import charger_factory, Charger
+from .meters import meter_factory, Meter
 from homeassistant.core import HomeAssistant
 from . import config_flow as cf
 from .const import DOMAIN
@@ -28,10 +28,21 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up EVSE Load Balancer from a config entry."""
 
-    meter: Meter = await meter_factory(hass, entry, entry.data.get(cf.CONF_CUSTOM_PHASE_CONFIG, False), entry.data.get(cf.CONF_METER_DEVICE))
-    charger: Charger = await charger_factory(hass, entry, entry.data.get(cf.CONF_CHARGER_DEVICE))
+    meter: Meter = await meter_factory(
+        hass,
+        entry,
+        entry.data.get(cf.CONF_CUSTOM_PHASE_CONFIG, False),
+        entry.data.get(cf.CONF_METER_DEVICE),
+    )
+    charger: Charger = await charger_factory(
+        hass, entry, entry.data.get(cf.CONF_CHARGER_DEVICE)
+    )
 
-    _LOGGER.info("Setting up entry with meter '%s' and charger '%s'", meter.__class__.__name__, charger.__class__.__name__)
+    _LOGGER.info(
+        "Setting up entry with meter '%s' and charger '%s'",
+        meter.__class__.__name__,
+        charger.__class__.__name__,
+    )
 
     coordinator = EVSELoadBalancerCoordinator(
         hass=hass,

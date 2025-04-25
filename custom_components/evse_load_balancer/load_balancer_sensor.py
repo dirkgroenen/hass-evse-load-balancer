@@ -1,10 +1,8 @@
-"""  Load Balancer sensor platform."""
+"""Load Balancer sensor platform."""
+
 import logging
 
-from homeassistant.components.sensor import (
-    SensorEntity,
-    SensorEntityDescription
-)
+from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.helpers.entity import (
     DeviceInfo,
 )
@@ -19,23 +17,24 @@ _LOGGER = logging.getLogger(__name__)
 class LoadBalancerSensor(SensorEntity):
     """Representation of a EVSE Load Balancer sensor."""
 
-    def __init__(self,
-                 coordinator: EVSELoadBalancerCoordinator,
-                 entity_description: SensorEntityDescription
-                 ):
+    def __init__(
+        self,
+        coordinator: EVSELoadBalancerCoordinator,
+        entity_description: SensorEntityDescription,
+    ):
         super().__init__()
         self.entity_description = entity_description
         self._coordinator = coordinator
         self._attr_should_poll = False
-        self._attr_name = entity_description.key.replace('_', ' ').title()
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{entity_description.key}"
+        self._attr_name = entity_description.key.replace("_", " ").title()
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_{entity_description.key}"
+        )
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self._coordinator.config_entry.entry_id)},
             name="EVSE Load Balancer",
             manufacturer="EnergyLabs",
-            configuration_url=(
-                "https://energylabs.cloud/xxx"
-            ),
+            configuration_url=("https://energylabs.cloud/xxx"),
         )
 
         coordinator.register_sensor(self)

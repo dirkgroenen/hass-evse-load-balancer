@@ -1,13 +1,9 @@
 """EVSE Load Balancer sensor platform."""
+
 import logging
 
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorEntityDescription
-)
-from homeassistant.components.sensor.const import (
-    UnitOfElectricCurrent
-)
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntityDescription
+from homeassistant.components.sensor.const import UnitOfElectricCurrent
 from homeassistant.helpers.entity import (
     EntityCategory,
 )
@@ -29,10 +25,11 @@ SENSOR_KEY_AVAILABLE_CURRENT_L3 = "available_current_l3"
 class LoadBalancerPhaseSensor(LoadBalancerSensor):
     """Representation of a EVSE Load Balancer sensor."""
 
-    def __init__(self,
-                 coordinator: EVSELoadBalancerCoordinator,
-                 entity_description: SensorEntityDescription
-                 ):
+    def __init__(
+        self,
+        coordinator: EVSELoadBalancerCoordinator,
+        entity_description: SensorEntityDescription,
+    ):
         super().__init__(coordinator, entity_description)
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE

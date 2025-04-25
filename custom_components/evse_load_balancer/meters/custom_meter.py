@@ -2,7 +2,7 @@ from typing import Optional
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 import logging
-from .meter import (Meter, Phase)
+from .meter import Meter, Phase
 from .. import config_flow as cf
 from math import floor
 
@@ -20,11 +20,7 @@ class CustomMeter(Meter):
     Customer Meter implementation of the Meter class.
     """
 
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        config_entry: ConfigEntry
-    ):
+    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry):
         Meter.__init__(self, hass, config_entry)
         self._config_entry_data = config_entry.data
 
@@ -36,8 +32,12 @@ class CustomMeter(Meter):
         active_power = self.get_active_phase_power(phase)
         voltage_state = self._get_state(phase_config[cf.CONF_PHASE_SENSOR_VOLTAGE])
         if None in [active_power, voltage_state]:
-            _LOGGER.warning("Missing states for one of phase %s: active_power: %s, voltage_state: %s. Is it enabled?",
-                            phase, active_power, voltage_state)
+            _LOGGER.warning(
+                "Missing states for one of phase %s: active_power: %s, voltage_state: %s. Is it enabled?",
+                phase,
+                active_power,
+                voltage_state,
+            )
             return None
         return floor((active_power * 1000) / voltage_state) if voltage_state else None
 
@@ -49,19 +49,27 @@ class CustomMeter(Meter):
         consumption = self._get_state(phase_config[cf.CONF_PHASE_SENSOR_CONSUMPTION])
         production = self._get_state(phase_config[cf.CONF_PHASE_SENSOR_PRODUCTION])
         if None in [consumption, production]:
-            _LOGGER.warning("Missing states for one of phase %s: consumption: %s, production: %s. Is it enabled?",
-                            phase, consumption, production)
+            _LOGGER.warning(
+                "Missing states for one of phase %s: consumption: %s, production: %s. Is it enabled?",
+                phase,
+                consumption,
+                production,
+            )
             return None
-        return (consumption - production)
+        return consumption - production
 
     def get_tracking_entities(self) -> list[str]:
         """
         Returns a list of entity IDs that should be tracked for this meter
-        to function properly. 
+        to function properly.
         """
         sensors = []
         for phase_cf in PHASE_CONF_MAP.values():
-            for cf_sensor in [cf.CONF_PHASE_SENSOR_CONSUMPTION, cf.CONF_PHASE_SENSOR_PRODUCTION, cf.CONF_PHASE_SENSOR_VOLTAGE]:
+            for cf_sensor in [
+                cf.CONF_PHASE_SENSOR_CONSUMPTION,
+                cf.CONF_PHASE_SENSOR_PRODUCTION,
+                cf.CONF_PHASE_SENSOR_VOLTAGE,
+            ]:
                 sensors.append(self._config_entry_data[phase_cf][cf_sensor])
         return sensors
 
@@ -74,5 +82,7 @@ class CustomMeter(Meter):
         try:
             return float(state_value)
         except ValueError as ex:
-            _LOGGER.error("Failed to parse state %s for entity %s: %s", state_value, entity_id, ex)
+            _LOGGER.error(
+                "Failed to parse state %s for entity %s: %s", state_value, entity_id, ex
+            )
             return None

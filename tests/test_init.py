@@ -1,4 +1,5 @@
 """Test component setup."""
+
 from homeassistant.setup import async_setup_component
 
 from custom_components.evse_load_balancer.const import DOMAIN

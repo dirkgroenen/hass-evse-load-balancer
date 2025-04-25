@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 
 from ..ha_device import HaDevice
-from .meter import (Meter, Phase)
+from .meter import Meter, Phase
 from .. import config_flow as cf
 from math import floor
 
@@ -17,20 +17,20 @@ _LOGGER = logging.getLogger(__name__)
 # @see https://github.com/home-assistant/core/blob/dev/homeassistant/components/dsmr/sensor.py
 ENTITY_REGISTRATION_MAP: dict[str, dict[str, str]] = {
     cf.CONF_PHASE_KEY_ONE: {
-        cf.CONF_PHASE_SENSOR_PRODUCTION: 'instantaneous_active_power_l1_negative',
-        cf.CONF_PHASE_SENSOR_CONSUMPTION: 'instantaneous_active_power_l1_positive',
-        cf.CONF_PHASE_SENSOR_VOLTAGE: 'instantaneous_voltage_l1',
+        cf.CONF_PHASE_SENSOR_PRODUCTION: "instantaneous_active_power_l1_negative",
+        cf.CONF_PHASE_SENSOR_CONSUMPTION: "instantaneous_active_power_l1_positive",
+        cf.CONF_PHASE_SENSOR_VOLTAGE: "instantaneous_voltage_l1",
     },
     cf.CONF_PHASE_KEY_TWO: {
-        cf.CONF_PHASE_SENSOR_PRODUCTION: 'instantaneous_active_power_l2_negative',
-        cf.CONF_PHASE_SENSOR_CONSUMPTION: 'instantaneous_active_power_l2_positive',
-        cf.CONF_PHASE_SENSOR_VOLTAGE: 'instantaneous_voltage_l2',
+        cf.CONF_PHASE_SENSOR_PRODUCTION: "instantaneous_active_power_l2_negative",
+        cf.CONF_PHASE_SENSOR_CONSUMPTION: "instantaneous_active_power_l2_positive",
+        cf.CONF_PHASE_SENSOR_VOLTAGE: "instantaneous_voltage_l2",
     },
     cf.CONF_PHASE_KEY_THREE: {
-        cf.CONF_PHASE_SENSOR_PRODUCTION: 'instantaneous_active_power_l3_negative',
-        cf.CONF_PHASE_SENSOR_CONSUMPTION: 'instantaneous_active_power_l3_positive',
-        cf.CONF_PHASE_SENSOR_VOLTAGE: 'instantaneous_voltage_l3',
-    }
+        cf.CONF_PHASE_SENSOR_PRODUCTION: "instantaneous_active_power_l3_negative",
+        cf.CONF_PHASE_SENSOR_CONSUMPTION: "instantaneous_active_power_l3_positive",
+        cf.CONF_PHASE_SENSOR_VOLTAGE: "instantaneous_voltage_l3",
+    },
 }
 
 
@@ -40,10 +40,7 @@ class DsmrMeter(Meter, HaDevice):
     """
 
     def __init__(
-        self,
-        hass: HomeAssistant,
-        config_entry: ConfigEntry,
-        device_entry: DeviceEntry
+        self, hass: HomeAssistant, config_entry: ConfigEntry, device_entry: DeviceEntry
     ):
         """
         Initialize the Meter instance.
@@ -57,27 +54,41 @@ class DsmrMeter(Meter, HaDevice):
         Returns the active current on a given phase
         """
         active_power = self.get_active_phase_power(phase)
-        voltage_state = self._get_entity_state_for_phase_sensor(phase, cf.CONF_PHASE_SENSOR_VOLTAGE)
+        voltage_state = self._get_entity_state_for_phase_sensor(
+            phase, cf.CONF_PHASE_SENSOR_VOLTAGE
+        )
 
         if None in [active_power, voltage_state]:
-            _LOGGER.warning("Missing states for one of phase %s: active_power: %s, voltage: %s. Is it enabled?",
-                            phase, active_power, voltage_state)
+            _LOGGER.warning(
+                "Missing states for one of phase %s: active_power: %s, voltage: %s. Is it enabled?",
+                phase,
+                active_power,
+                voltage_state,
+            )
             return None
         # convert kW to W in order to calculate the current
         return floor((active_power * 1000) / voltage_state) if voltage_state else None
 
     def get_active_phase_power(self, phase: Phase) -> Optional[float]:
         """
-        Returns the active power on a given phase. 
+        Returns the active power on a given phase.
         """
-        consumption_state = self._get_entity_state_for_phase_sensor(phase, cf.CONF_PHASE_SENSOR_CONSUMPTION)
-        production_state = self._get_entity_state_for_phase_sensor(phase, cf.CONF_PHASE_SENSOR_PRODUCTION)
+        consumption_state = self._get_entity_state_for_phase_sensor(
+            phase, cf.CONF_PHASE_SENSOR_CONSUMPTION
+        )
+        production_state = self._get_entity_state_for_phase_sensor(
+            phase, cf.CONF_PHASE_SENSOR_PRODUCTION
+        )
 
         if None in [consumption_state, production_state]:
-            _LOGGER.warning("Missing states for one of phase %s: consumption: %s, production: %s",
-                            phase, consumption_state, production_state)
+            _LOGGER.warning(
+                "Missing states for one of phase %s: consumption: %s, production: %s",
+                phase,
+                consumption_state,
+                production_state,
+            )
             return None
-        return (consumption_state - production_state)
+        return consumption_state - production_state
 
     def get_tracking_entities(self) -> list[str]:
         """
@@ -86,10 +97,18 @@ class DsmrMeter(Meter, HaDevice):
         """
         # Grab each phase in ENTITY_REGISTRATION_MAP and get the values. Return
         # a flattened list of all the values.
-        translation_keys = [entity for phase in ENTITY_REGISTRATION_MAP.values() for entity in phase.values()]
-        return [e.entity_id for e in self.entities if e.translation_key in translation_keys]
+        translation_keys = [
+            entity
+            for phase in ENTITY_REGISTRATION_MAP.values()
+            for entity in phase.values()
+        ]
+        return [
+            e.entity_id for e in self.entities if e.translation_key in translation_keys
+        ]
 
-    def _get_entity_id_for_phase_sensor(self, phase: Phase, sensor_const: str) -> Optional[float]:
+    def _get_entity_id_for_phase_sensor(
+        self, phase: Phase, sensor_const: str
+    ) -> Optional[float]:
         """
         Get the state of the entity for a given phase and translation key.
         """
@@ -97,7 +116,9 @@ class DsmrMeter(Meter, HaDevice):
             self._get_entity_map_for_phase(phase)[sensor_const]
         )
 
-    def _get_entity_state_for_phase_sensor(self, phase: Phase, sensor_const: str) -> Optional[float]:
+    def _get_entity_state_for_phase_sensor(
+        self, phase: Phase, sensor_const: str
+    ) -> Optional[float]:
         """
         Get the state of the entity for a given phase and translation key.
         """

@@ -1,13 +1,16 @@
 """Test the Simple Integration config flow."""
 
 import pytest
-from custom_components.evse_load_balancer import config_flow as cf, options_flow as of, const
+from custom_components.evse_load_balancer import (
+    config_flow as cf,
+    options_flow as of,
+    const,
+)
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 
 @pytest.mark.asyncio
 async def test_options_flow_init(hass):
-
     config_entry = MockConfigEntry(
         domain=const.DOMAIN,
         unique_id="unique_balancer_id",

@@ -6,7 +6,7 @@ from homeassistant.helpers.device_registry import (
 )
 
 from ..ha_device import HaDevice
-from .charger import (Charger, PhaseMode)
+from .charger import Charger, PhaseMode
 from ..const import CHARGER_DOMAIN_EASEE, Phase
 from homeassistant.config_entries import ConfigEntry
 
@@ -54,7 +54,9 @@ class EaseeCharger(HaDevice, Charger):
     Implementation of the Charger class for Easee chargers.
     """
 
-    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry, device_entry: DeviceEntry):
+    def __init__(
+        self, hass: HomeAssistant, config_entry: ConfigEntry, device_entry: DeviceEntry
+    ):
         HaDevice.__init__(self, hass, device_entry)
         Charger.__init__(self, hass, config_entry, device_entry)
         self.refresh_entities()
@@ -65,12 +67,17 @@ class EaseeCharger(HaDevice, Charger):
         # Implement the logic to set the phase mode for Easee chargers
 
     async def set_current_limit(self, limit: dict[Phase, int]):
-        max_current = self._get_entity_state_by_translation_key(EaseeEntityMap.MaxChargerCurrent)
+        max_current = self._get_entity_state_by_translation_key(
+            EaseeEntityMap.MaxChargerCurrent
+        )
         for phase, current in limit.items():
             if current > max_current:
                 _LOGGER.debug(
                     "New current for phase %s (%s) exceeds configured max charger current %s. Setting limit to %s",
-                    phase, current, max_current, max_current
+                    phase,
+                    current,
+                    max_current,
+                    max_current,
                 )
                 limit[phase] = max_current
 
@@ -82,7 +89,7 @@ class EaseeCharger(HaDevice, Charger):
                 "current_p1": limit[Phase.L1],
                 "current_p2": limit[Phase.L2],
                 "current_p3": limit[Phase.L3],
-                "time_to_live": 0
+                "time_to_live": 0,
             },
             blocking=True,
         )
@@ -94,7 +101,10 @@ class EaseeCharger(HaDevice, Charger):
         if state_attrs is None:
             _LOGGER.warning("Dynamic Circuit Limit not available")
             return {phase: None for phase in Phase}
-        return {phase: state_attrs.get(EASEE_DYNAMIC_CIRCUIT_CURRENT_MAP[phase], None) for phase in Phase}
+        return {
+            phase: state_attrs.get(EASEE_DYNAMIC_CIRCUIT_CURRENT_MAP[phase], None)
+            for phase in Phase
+        }
 
     def _get_status(self) -> Optional[str]:
         return self._get_entity_state_by_translation_key(

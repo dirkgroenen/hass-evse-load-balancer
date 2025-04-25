@@ -1,4 +1,5 @@
 """Test the Simple Integration config flow."""
+
 from unittest import mock
 
 from homeassistant import config_entries
@@ -38,12 +39,13 @@ async def test_flow_user_init_validation(hass):
         const.DOMAIN, context={"source": "user"}
     )
     result = await hass.config_entries.flow.async_configure(
-        _result["flow_id"], user_input={
+        _result["flow_id"],
+        user_input={
             config_flow.CONF_PHASE_COUNT: 3,
             config_flow.CONF_FUSE_SIZE: 25,
             config_flow.CONF_CHARGER_DEVICE: "abc-123",
             config_flow.CONF_CUSTOM_PHASE_CONFIG: True,
-        }
+        },
     )
     assert result["step_id"] == "power"
     assert result["type"] == "form"
@@ -55,12 +57,13 @@ async def test_flow_user_init_with_meter_device(hass):
         const.DOMAIN, context={"source": "user"}
     )
     result = await hass.config_entries.flow.async_configure(
-        _result["flow_id"], user_input={
+        _result["flow_id"],
+        user_input={
             config_flow.CONF_PHASE_COUNT: 3,
             config_flow.CONF_FUSE_SIZE: 25,
             config_flow.CONF_CHARGER_DEVICE: "abc-123",
             config_flow.CONF_METER_DEVICE: "meter-123",
-        }
+        },
     )
     expected = {
         "version": 1,
@@ -77,12 +80,10 @@ async def test_flow_user_init_with_meter_device(hass):
         "description": None,
         "description_placeholders": None,
         "result": mock.ANY,
-        "context": {
-            "source": "user"
-        },
+        "context": {"source": "user"},
         "minor_version": 1,
         "options": {},
-        "subentries": ()
+        "subentries": (),
     }
     assert result == expected
 
@@ -93,11 +94,12 @@ async def test_flow_user_init_data_custom_phase_step(hass):
         const.DOMAIN, context={"source": "user"}
     )
     result = await hass.config_entries.flow.async_configure(
-        _result["flow_id"], user_input={
+        _result["flow_id"],
+        user_input={
             config_flow.CONF_PHASE_COUNT: 3,
             config_flow.CONF_FUSE_SIZE: 25,
             config_flow.CONF_CHARGER_DEVICE: "abc-123",
-        }
+        },
     )
     assert result["errors"] == {"base": "metering_selection_required"}
 

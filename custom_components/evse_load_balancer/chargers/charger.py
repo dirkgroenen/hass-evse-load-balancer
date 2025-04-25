@@ -13,6 +13,7 @@ class PhaseMode(Enum):
     """
     Enum to represent the phase mode of the charger.
     """
+
     SINGLE = "single"
     MULTI = "multi"
 
@@ -59,13 +60,13 @@ class Charger(ABC):
     @abstractmethod
     def car_connected(self) -> bool:
         """
-        Returns whether the car is connected to the charger and therefore 
-        ready to receive a charge.  This does not mean that the car is 
-        actually charging. Combine with is_charging() to determine if the car 
+        Returns whether the car is connected to the charger and therefore
+        ready to receive a charge.  This does not mean that the car is
+        actually charging. Combine with is_charging() to determine if the car
         is already charging.
 
         When the connected car is not authorised (and therefore the charger is not ready)
-        we consider it a "disconnected" state. 
+        we consider it a "disconnected" state.
         """
         pass
 

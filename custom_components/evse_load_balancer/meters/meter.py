@@ -10,11 +10,7 @@ class Meter(ABC):
     Base class for all energy meter.
     """
 
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        config_entry: ConfigEntry
-    ):
+    def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry):
         """
         Initialize the Meter instance.
         """
@@ -39,6 +35,6 @@ class Meter(ABC):
     def get_tracking_entities(self) -> list[str]:
         """
         Returns a list of entity IDs that should be tracked for this meter
-        to function properly. 
+        to function properly.
         """
         pass
