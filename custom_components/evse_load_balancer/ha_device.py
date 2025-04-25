@@ -59,6 +59,7 @@ class HaDevice():
         if state is None:
             _LOGGER.debug("State not found for entity %s", entity_id)
             return None
+
         try:
             return parser_fn(state.state) if parser_fn else state.state
         except ValueError:

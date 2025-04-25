@@ -77,7 +77,7 @@ class DsmrMeter(Meter, HaDevice):
             _LOGGER.warning("Missing states for one of phase %s: consumption: %s, production: %s",
                             phase, consumption_state, production_state)
             return None
-        return (production_state - consumption_state)
+        return (consumption_state - production_state)
 
     def get_tracking_entities(self) -> list[str]:
         """

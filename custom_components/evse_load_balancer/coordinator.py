@@ -1,23 +1,34 @@
-from typing import Optional
-from homeassistant.core import (
-    HomeAssistant,
-    CALLBACK_TYPE,
-    callback
-)
+import logging
+from datetime import datetime, timedelta
 from math import floor
 from statistics import median
-from .chargers.charger import Charger
-from .meters.meter import Meter, Phase
-import logging
-from homeassistant.util import Throttle
-from homeassistant.helpers.event import async_track_state_change_event
-from homeassistant.config_entries import ConfigEntry
-from datetime import timedelta
 from time import time
+from typing import Optional
+
 from homeassistant.components.sensor import (
     SensorEntity,
 )
-from . import config_flow as cf, options_flow as of
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import ATTR_DEVICE_ID
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.device_registry import DeviceEntry
+from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.util import Throttle
+
+from . import config_flow as cf
+from . import options_flow as of
+from .chargers.charger import Charger
+from .const import (
+    COORDINATOR_STATE_AWAITING_CHARGER,
+    COORDINATOR_STATE_MONITORING_LOAD,
+    DOMAIN,
+    EVENT_ACTION_NEW_CHARGER_LIMITS,
+    EVENT_ATTR_ACTION,
+    EVENT_ATTR_NEW_LIMITS,
+    EVSE_LOAD_BALANCER_COORDINATOR_EVENT,
+)
+from .meters.meter import Meter, Phase
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +38,8 @@ DEFAULT_THROTTLE_SECONDS = 5
 class EVSELoadBalancerCoordinator:
     _hysteresis_buffer: dict[Phase, list[int]] = {phase: None for phase in Phase}
     _hysteresis_start: dict[Phase, Optional[int]] = {phase: None for phase in Phase}
+
+    _last_check_timestamp: str = None
 
     def __init__(self,
                  hass: HomeAssistant,
@@ -45,12 +58,17 @@ class EVSELoadBalancerCoordinator:
         self._meter: Meter = meter
         self._charger: Charger = charger
 
+        device_registry = dr.async_get(self.hass)
+        self._device: DeviceEntry = device_registry.async_get_device(
+            identifiers={(DOMAIN, self.config_entry.entry_id)}
+        )
+
     async def async_setup(self) -> None:
         tracked_entities = self._meter.get_tracking_entities()
         _LOGGER.debug("Tracking entities: %s", tracked_entities)
         self._unsub.append(
             async_track_state_change_event(
-                self.hass, tracked_entities, self._handle_state_change
+                self.hass, tracked_entities, self._handle_meter_state_change
             )
         )
         self._unsub.append(
@@ -65,7 +83,7 @@ class EVSELoadBalancerCoordinator:
         self._unsub.clear()
 
     @callback
-    def _handle_state_change(self, event):
+    def _handle_meter_state_change(self, event):
         self.hass.async_create_task(self._execute_update_cycle())
 
     async def _handle_options_update(self, hass: HomeAssistant, entry: ConfigEntry):
@@ -79,7 +97,7 @@ class EVSELoadBalancerCoordinator:
 
     def get_available_current_for_phase(self, phase: Phase) -> Optional[int]:
         active_current = self._meter.get_active_phase_current(phase)
-        return min(self._fuse_size, floor(self.fuse_size - active_current)) if active_current is not None else None
+        return max(0, min(self._fuse_size, floor(self.fuse_size - active_current))) if active_current is not None else None
 
     def _get_available_currents(self) -> Optional[dict[Phase, int]]:
         """Check all phases and return the available current."""
@@ -93,8 +111,22 @@ class EVSELoadBalancerCoordinator:
     def fuse_size(self) -> float:
         return self.config_entry.data.get(cf.CONF_FUSE_SIZE, 0)
 
+    @property
+    def get_load_balancing_state(self) -> str:
+        """Get the load balancing state."""
+        if self._should_check_charger():
+            return COORDINATOR_STATE_MONITORING_LOAD
+        else:
+            return COORDINATOR_STATE_AWAITING_CHARGER
+
+    @property
+    def get_last_check_timestamp(self) -> str:
+        """Get the last check timestamp."""
+        return self._last_check_timestamp
+
     @Throttle(timedelta(seconds=DEFAULT_THROTTLE_SECONDS))
     async def _execute_update_cycle(self):
+        self._last_check_timestamp = datetime.now().astimezone()
         available_currents = self._get_available_currents()
         current_charger_setting = self._charger.get_current_limit()
 
@@ -129,7 +161,7 @@ class EVSELoadBalancerCoordinator:
             # Update the charger with the new settings
             if values_changed:
                 _LOGGER.debug("New charger settings: %s", new_charger_settings)
-                self._emit_charger_event("set_current_limit", new_charger_settings)
+                self._emit_charger_event(EVENT_ACTION_NEW_CHARGER_LIMITS, new_charger_settings)
                 await self._charger.set_current_limit(new_charger_settings)
 
     def _async_update_sensors(self):
@@ -140,7 +172,7 @@ class EVSELoadBalancerCoordinator:
 
     def _should_check_charger(self) -> bool:
         """Check if the charger should be checked for current limit changes."""
-        return True  # return self._charger.is_charging()
+        return self._charger.is_charging()
 
     def _apply_phase_hysteresis(self, phase: Phase, available_current: int) -> Optional[int]:
         now = int(time())
@@ -168,11 +200,11 @@ class EVSELoadBalancerCoordinator:
     def _emit_charger_event(self, action: str, new_limits: dict[Phase, int]) -> None:
         """Emit an event to Home Assistant's device event log."""
         self.hass.bus.async_fire(
-            "evse_load_balancer_charger_event",
+            EVSE_LOAD_BALANCER_COORDINATOR_EVENT,
             {
-                "device_id": self.config_entry.entry_id,
-                "action": action,
-                "new_limits": new_limits,
+                ATTR_DEVICE_ID: self._device.id,
+                EVENT_ATTR_ACTION: action,
+                EVENT_ATTR_NEW_LIMITS: new_limits,
             }
         )
         _LOGGER.info("Emitted charger event: action=%s, new_limits=%s", action, new_limits)

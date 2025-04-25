@@ -65,10 +65,14 @@ class EaseeCharger(HaDevice, Charger):
         # Implement the logic to set the phase mode for Easee chargers
 
     async def set_current_limit(self, limit: dict[Phase, int]):
-        # max_current = self._get_entity_state_by_translation_key(EaseeEntityMap.MaxChargerCurrent)
-        # if max_current is not None and max_current < limit:
-        #     _LOGGER.debug("New current %s exceeds configured max charger current %s. Setting limit to %s ", limit, max_current, limit)
-        #     limit = max_current
+        max_current = self._get_entity_state_by_translation_key(EaseeEntityMap.MaxChargerCurrent)
+        for phase, current in limit.items():
+            if current > max_current:
+                _LOGGER.debug(
+                    "New current for phase %s (%s) exceeds configured max charger current %s. Setting limit to %s",
+                    phase, current, max_current, max_current
+                )
+                limit[phase] = max_current
 
         await self.hass.services.async_call(
             domain=CHARGER_DOMAIN_EASEE,
@@ -113,6 +117,7 @@ class EaseeCharger(HaDevice, Charger):
         """
         See abstract Charger class for correct implementation of is_charging()
         """
+        return True
         status = self._get_status()
         return status in [
             EaseeStatusMap.Charging,

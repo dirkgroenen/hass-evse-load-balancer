@@ -14,6 +14,19 @@ SUPPORTED_METER_DEVICE_DOMAINS = (
 )
 
 
+COORDINATOR_STATE_AWAITING_CHARGER = "awaiting_charger"
+COORDINATOR_STATE_MONITORING_LOAD = "monitoring_loads"
+COORDINATOR_STATES: tuple[str] = (
+    COORDINATOR_STATE_AWAITING_CHARGER,
+    COORDINATOR_STATE_MONITORING_LOAD,
+)
+
+EVSE_LOAD_BALANCER_COORDINATOR_EVENT = "evse_load_balancer_coordinator_event"
+EVENT_ACTION_NEW_CHARGER_LIMITS = "new_charger_limits"
+EVENT_ATTR_ACTION = "action"
+EVENT_ATTR_NEW_LIMITS = "new_limits"
+
+
 class Phase(Enum):
     L1 = "l1"
     L2 = "l2"

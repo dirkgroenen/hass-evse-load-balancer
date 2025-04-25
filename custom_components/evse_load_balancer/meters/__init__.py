@@ -10,6 +10,7 @@ from homeassistant.helpers import (
     device_registry as dr
 )
 from ..const import (
+    METER_DOMAIN_DSMR,
     SUPPORTED_METER_DEVICE_DOMAINS,
 )
 
@@ -32,7 +33,7 @@ async def meter_factory(hass: HomeAssistant, config_entry: ConfigEntry, custom_c
         raise ValueError(f"Device with ID {device_entry_id} not found in registry.")
 
     manufacturer = next((domain for [domain, _] in device.identifiers if domain in SUPPORTED_METER_DEVICE_DOMAINS), None)
-    if manufacturer == "dsmr":
+    if manufacturer == METER_DOMAIN_DSMR:
         return DsmrMeter(hass, config_entry, device)
     else:
         raise ValueError(f"Unsupported manufacturer: {manufacturer}")

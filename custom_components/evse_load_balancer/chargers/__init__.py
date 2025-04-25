@@ -5,6 +5,7 @@ from homeassistant.helpers.device_registry import (
     DeviceEntry
 )
 from ..const import (
+    CHARGER_DOMAIN_EASEE,
     SUPPORTED_CHARGER_DEVICE_DOMAINS
 )
 from homeassistant.config_entries import ConfigEntry
@@ -22,7 +23,7 @@ async def charger_factory(hass: HomeAssistant, config_entry: ConfigEntry, device
         raise ValueError(f"Device with ID {device_entry_id} not found in registry.")
 
     manufacturer = next((domain for [domain, _] in device.identifiers if domain in SUPPORTED_CHARGER_DEVICE_DOMAINS), None)
-    if manufacturer == "easee":
+    if manufacturer == CHARGER_DOMAIN_EASEE:
         return EaseeCharger(hass, config_entry, device)
     else:
         raise ValueError(f"Unsupported manufacturer: {manufacturer}")

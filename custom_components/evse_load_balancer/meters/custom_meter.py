@@ -70,8 +70,9 @@ class CustomMeter(Meter):
         if state is None:
             _LOGGER.debug("State not found for entity %s", entity_id)
             return None
+        state_value = state.state
         try:
-            return float(state.state)
+            return float(state_value)
         except ValueError as ex:
-            _LOGGER.error("Failed to parse state %s for entity %s: %s", state.state, entity_id, ex)
+            _LOGGER.error("Failed to parse state %s for entity %s: %s", state_value, entity_id, ex)
             return None
