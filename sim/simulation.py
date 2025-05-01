@@ -21,6 +21,7 @@ from custom_components.evse_load_balancer.const import Phase
 CURRENT_LIMIT = 25.0  # Used for overcurrent % calculations inside the balancer logic.
 RAMP_DURATION = 15  # Duration (in simulation steps) over which ramping is applied.
 MAX_CHARGE_CURRENT_PER_PHASE = 16.0  # Maximum per-phase current
+INIT_CHARGE_CURRENT_PER_PHASE = 16.0  # Initial per-phase current
 
 # Inladen van data
 df_final_selected = pd.read_csv(
@@ -39,7 +40,7 @@ balancer = OptimisedLoadBalancer(
 )
 
 # Initially, the charger current per phase is the maximum.
-current_limits = dict.fromkeys(Phase, MAX_CHARGE_CURRENT_PER_PHASE)
+current_limits = dict.fromkeys(Phase, INIT_CHARGE_CURRENT_PER_PHASE)
 max_limits = dict.fromkeys(Phase, MAX_CHARGE_CURRENT_PER_PHASE)
 
 # For ramp simulation we store both start and target limits per phase and a

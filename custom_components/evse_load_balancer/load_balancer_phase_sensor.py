@@ -13,7 +13,7 @@ from .const import (
     Phase,
 )
 from .coordinator import EVSELoadBalancerCoordinator
-from .load_balancer_sensor import LoadBalancerSensor
+from .coordinator_sensor import CoordinatorSensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ SENSOR_KEY_AVAILABLE_CURRENT_L2 = "available_current_l2"
 SENSOR_KEY_AVAILABLE_CURRENT_L3 = "available_current_l3"
 
 
-class LoadBalancerPhaseSensor(LoadBalancerSensor):
+class LoadBalancerPhaseSensor(CoordinatorSensor):
     """Representation of a EVSE Load Balancer sensor."""
 
     def __init__(

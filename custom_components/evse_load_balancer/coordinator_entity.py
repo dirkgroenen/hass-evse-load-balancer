@@ -1,10 +1,11 @@
-"""Load Balancer sensor platform."""
+"""Load Balancer Number implementation."""
 
 import logging
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.helpers.entity import (
     DeviceInfo,
+    Entity,
+    EntityDescription,
 )
 
 from .const import (
@@ -15,20 +16,21 @@ from .coordinator import EVSELoadBalancerCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 
-class LoadBalancerSensor(SensorEntity):
-    """Representation of a EVSE Load Balancer sensor."""
+class CoordinatorEntity(Entity):
+    """Setter and getter implementation of a EVSE Load Balancer entity."""
 
     def __init__(
         self,
         coordinator: EVSELoadBalancerCoordinator,
-        entity_description: SensorEntityDescription,
+        entity_description: EntityDescription,
     ) -> None:
-        """Initialize the LoadBalancerSensor."""
+        """Initialize the base CoordinatorSensor."""
         super().__init__()
         self.entity_description = entity_description
         self._coordinator = coordinator
-        self._attr_should_poll = False
-        self._attr_name = entity_description.key.replace("_", " ").title()
+
+        self._attr_name = entity_description.name or \
+            entity_description.key.replace("_", " ").title()
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_{entity_description.key}"
         )
@@ -40,23 +42,21 @@ class LoadBalancerSensor(SensorEntity):
                 "https://github.com/dirkgroenen/hass-evse-load-balancer"
             ),
         )
+        self._attr_should_poll = False
 
-        coordinator.register_sensor(self)
+        self._register_entity()
 
-    @property
-    def native_value(self) -> any:
-        """Return the value of the sensor."""
-        return self._get_value_from_coordinator()
+    def _register_entity(self) -> None:
+        """Register the entity with the coordinator."""
+        self._coordinator.register_entity(self)
 
-    @property
-    def available(self) -> bool:
-        """Return if entity is available."""
-        return self.state is not None
+    def _set_value_in_coordinator(self, value: any) -> None:
+        setattr(self._coordinator, self.entity_description.key, value)
+        self.async_write_ha_state()
 
-    def _get_value_from_coordinator(self) -> any:
-        """Override in subclass or implement coordinator lookup based on key."""
+    def _get_value_in_coordinator(self) -> any:
         return getattr(self._coordinator, self.entity_description.key, None)
 
     async def async_will_remove_from_hass(self) -> None:
         """Unregister the sensor from the coordinator."""
-        self._coordinator.unregister_sensor(self)
+        self._coordinator.unregister_entity(self)

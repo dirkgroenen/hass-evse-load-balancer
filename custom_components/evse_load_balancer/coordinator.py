@@ -14,6 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_DEVICE_ID
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_time_interval
 
 from . import config_flow as cf
@@ -54,6 +55,9 @@ class EVSELoadBalancerCoordinator:
 
     _last_charger_target_update: tuple[dict[Phase, int], int] | None = None
 
+    _active_manual_current_limit: int | None = None
+    _manual_current_override_active: bool = False
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -67,6 +71,7 @@ class EVSELoadBalancerCoordinator:
 
         self._unsub: list[CALLBACK_TYPE] = []
         self._sensors: list[SensorEntity] = []
+        self._entities: dict[type[Entity], list[Entity]] = {}
 
         self._fuse_size = config_entry.data.get(cf.CONF_FUSE_SIZE, 0)
 
@@ -117,6 +122,15 @@ class EVSELoadBalancerCoordinator:
         """Unregister a sensor."""
         self._sensors.remove(sensor)
 
+    def register_entity(self, entity: Entity) -> None:
+        """Register an entity."""
+        entity_list = self._entities.get(type(entity), [])
+        entity_list.append(entity)
+
+    def unregister_entity(self, entity: Entity) -> None:
+        """Unregister an entity."""
+        self._entities[type(entity)].remove(entity)
+
     def get_available_current_for_phase(self, phase: Phase) -> int | None:
         """Get the available current for a given phase."""
         active_current = self._meter.get_active_phase_current(phase)
@@ -162,6 +176,36 @@ class EVSELoadBalancerCoordinator:
         """Get the last check timestamp."""
         return self._last_check_timestamp
 
+    @property
+    def manual_current_limit(self) -> int | None:
+        """Get the manual limit override."""
+        return self._active_manual_current_limit
+
+    @manual_current_limit.setter
+    def manual_current_limit(self, value: any) -> None:
+        """Set the manual limit override."""
+        try:
+            int_value = int(value)
+            self._active_manual_current_limit = int_value
+        except ValueError:
+            _LOGGER.exception("Invalid value for manual current limit: %s", value)
+            return
+
+    @property
+    def manual_current_override_active(self) -> bool:
+        """Get the manual limit override."""
+        return bool(self._manual_current_override_active)
+
+    @manual_current_override_active.setter
+    def manual_current_override_active(self, value: any) -> None:
+        """Set the manual limit override."""
+        try:
+            bool_value = bool(value)
+            self._manual_current_override_active = bool_value
+        except ValueError:
+            _LOGGER.exception("Invalid value for manual current override: %s", value)
+            return
+
     @callback
     def _execute_update_cycle(self, now: datetime) -> None:
         """Execute the update cycle for the charger."""
@@ -197,6 +241,18 @@ class EVSELoadBalancerCoordinator:
                 max_limits=max_charger_current,
                 now=now.timestamp(),
             )
+
+            # Check if there is a manual current limit override
+            # which takes precedence over the available current,
+            # but only when the available current is not lower
+            # than the manual limit.
+            if self._manual_current_override_active and \
+                    self._active_manual_current_limit is not None:
+                new_charger_settings = {
+                    phase: min(current, self._active_manual_current_limit)
+                    for phase, current in new_charger_settings
+                }
+
             # Update the charger with the new settings
             has_changed_values = any(
                 new_charger_settings[phase] is not current_charger_setting[phase]
