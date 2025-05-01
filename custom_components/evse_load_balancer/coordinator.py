@@ -70,7 +70,6 @@ class EVSELoadBalancerCoordinator:
         self.config_entry: ConfigEntry = config_entry
 
         self._unsub: list[CALLBACK_TYPE] = []
-        self._sensors: list[SensorEntity] = []
         self._entities: dict[type[Entity], list[Entity]] = {}
 
         self._fuse_size = config_entry.data.get(cf.CONF_FUSE_SIZE, 0)
@@ -114,22 +113,20 @@ class EVSELoadBalancerCoordinator:
     ) -> None:
         await hass.config_entries.async_reload(entry.entry_id)
 
-    def register_sensor(self, sensor: SensorEntity) -> None:
-        """Register a sensor to be updated."""
-        self._sensors.append(sensor)
-
-    def unregister_sensor(self, sensor: SensorEntity) -> None:
-        """Unregister a sensor."""
-        self._sensors.remove(sensor)
-
     def register_entity(self, entity: Entity) -> None:
         """Register an entity."""
-        entity_list = self._entities.get(type(entity), [])
+        entity_list = self._get_entities(entity)
         entity_list.append(entity)
 
     def unregister_entity(self, entity: Entity) -> None:
         """Unregister an entity."""
         self._entities[type(entity)].remove(entity)
+
+    def _get_entities(self, entity_type: type[Entity] | Entity) -> list[Entity]:
+        """Get all entities of a specific type."""
+        if isinstance(entity_type, Entity):
+            entity_type = type(entity_type)
+        return self._entities.setdefault(entity_type, [])
 
     def get_available_current_for_phase(self, phase: Phase) -> int | None:
         """Get the available current for a given phase."""
@@ -264,7 +261,7 @@ class EVSELoadBalancerCoordinator:
                 self._update_charger_settings(new_charger_settings)
 
     def _async_update_sensors(self) -> None:
-        for sensor in self._sensors:
+        for sensor in self._get_entities(SensorEntity):
             if sensor.enabled:
                 sensor.async_write_ha_state()
 

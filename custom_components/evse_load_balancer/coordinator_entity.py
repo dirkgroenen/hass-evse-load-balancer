@@ -30,7 +30,9 @@ class CoordinatorEntity(Entity):
         self._coordinator = coordinator
 
         self._attr_name = (
-            entity_description.name or entity_description.key.replace("_", " ").title()
+            entity_description.name
+            if isinstance(entity_description.name, str)
+            else entity_description.key.replace("_", " ").title()
         )
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_{entity_description.key}"
