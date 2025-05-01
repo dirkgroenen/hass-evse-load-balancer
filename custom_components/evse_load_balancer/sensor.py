@@ -14,13 +14,13 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import EVSELoadBalancerCoordinator
-from .load_balancer_phase_sensor import (
+from .coordinator_phase_sensor import (
     SENSOR_KEY_AVAILABLE_CURRENT_L1,
     SENSOR_KEY_AVAILABLE_CURRENT_L2,
     SENSOR_KEY_AVAILABLE_CURRENT_L3,
-    LoadBalancerPhaseSensor,
+    CoordinatorPhaseSensor,
 )
-from .load_balancer_sensor import LoadBalancerSensor
+from .coordinator_sensor import CoordinatorSensor
 from .utils import get_callable_name
 
 
@@ -41,7 +41,7 @@ async def async_setup_entry(
 
 SENSORS: tuple[tuple[SensorEntity, SensorEntityDescription], ...] = (
     (
-        LoadBalancerSensor,
+        CoordinatorSensor,
         SensorEntityDescription(
             key=get_callable_name(EVSELoadBalancerCoordinator.get_load_balancing_state),
             name="Load Balancing State",
@@ -51,7 +51,7 @@ SENSORS: tuple[tuple[SensorEntity, SensorEntityDescription], ...] = (
         ),
     ),
     (
-        LoadBalancerSensor,
+        CoordinatorSensor,
         SensorEntityDescription(
             key=get_callable_name(EVSELoadBalancerCoordinator.get_last_check_timestamp),
             name="Last Check",
@@ -60,7 +60,7 @@ SENSORS: tuple[tuple[SensorEntity, SensorEntityDescription], ...] = (
         ),
     ),
     (
-        LoadBalancerPhaseSensor,
+        CoordinatorPhaseSensor,
         SensorEntityDescription(
             key=SENSOR_KEY_AVAILABLE_CURRENT_L1,
             device_class=SensorDeviceClass.CURRENT,
@@ -69,7 +69,7 @@ SENSORS: tuple[tuple[SensorEntity, SensorEntityDescription], ...] = (
         ),
     ),
     (
-        LoadBalancerPhaseSensor,
+        CoordinatorPhaseSensor,
         SensorEntityDescription(
             key=SENSOR_KEY_AVAILABLE_CURRENT_L2,
             device_class=SensorDeviceClass.CURRENT,
@@ -78,7 +78,7 @@ SENSORS: tuple[tuple[SensorEntity, SensorEntityDescription], ...] = (
         ),
     ),
     (
-        LoadBalancerPhaseSensor,
+        CoordinatorPhaseSensor,
         SensorEntityDescription(
             key=SENSOR_KEY_AVAILABLE_CURRENT_L3,
             device_class=SensorDeviceClass.CURRENT,
