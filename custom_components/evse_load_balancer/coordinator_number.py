@@ -1,6 +1,5 @@
 """Load Balancer Number implementation."""
 
-
 from homeassistant.components.number import (
     NumberEntity,
 )

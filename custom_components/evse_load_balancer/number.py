@@ -49,6 +49,6 @@ NUMBERS: tuple[tuple[NumberEntity, NumberEntityDescription], ...] = (
             mode=NumberMode.BOX,
             native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
             device_class=NumberDeviceClass.CURRENT,
-        )
+        ),
     ),
 )

@@ -246,8 +246,10 @@ class EVSELoadBalancerCoordinator:
             # which takes precedence over the available current,
             # but only when the available current is not lower
             # than the manual limit.
-            if self._manual_current_override_active and \
-                    self._active_manual_current_limit is not None:
+            if (
+                self._manual_current_override_active
+                and self._active_manual_current_limit is not None
+            ):
                 new_charger_settings = {
                     phase: min(current, self._active_manual_current_limit)
                     for phase, current in new_charger_settings

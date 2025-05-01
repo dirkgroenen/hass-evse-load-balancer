@@ -36,9 +36,11 @@ SWITCHES: tuple[tuple[SwitchEntity, SwitchEntityDescription], ...] = (
     (
         CoordinatorSwitch,
         SwitchEntityDescription(
-            key=get_callable_name(EVSELoadBalancerCoordinator.manual_current_override_active),
+            key=get_callable_name(
+                EVSELoadBalancerCoordinator.manual_current_override_active
+            ),
             name="Current Limit Override",
             device_class=SwitchDeviceClass.SWITCH,
-        )
+        ),
     ),
 )
