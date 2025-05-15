@@ -1,40 +1,100 @@
 {
-  "title": "EVSE Load Balancer",
-  "config": {
-    "error": {
-      "metering_selection_required": "Either select a Smart Meter or select 'Advanced Energy Configuration'"
+    "title": "EVSE Load Balancer",
+    "config": {
+        "error": {
+            "metering_selection_required": "Either select a Smart Meter or select 'Advanced Energy Configuration'"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "charger_device": "EVSE Charger",
+                    "meter_device": "Smart Energy Meter",
+                    "custom_phase_config": "Advanced energy configuration (use when no energy meter is available)",
+                    "fuse_size": "Fuse size per phase (A)",
+                    "phase_count": "Number of phases"
+                },
+                "description": "Provide your Charger and Meter details.",
+                "title": "Configuration"
+            },
+            "power": {
+                "data": {
+                    "l1": "Phase One (L1)",
+                    "l2": "Phase Two (L2)",
+                    "l3": "Phase Three (L3)",
+                    "power_consumption": "Power Consumption",
+                    "power_production": "Power Production",
+                    "voltage": "Voltage"
+                },
+                "description": "Provide energy sensor details for each phase if custom configuration is selected.",
+                "title": "Energy Configuration"
+            }
+        }
     },
-    "step": {
-      "init": {
-        "data": {
-          "charge_limit_hysteresis": "Hysteresis (Minutes)"
+    "options": {
+        "step": {
+            "init": {
+                "title": "EVSE Load Balancer Options",
+                "data": {
+                    "charge_limit_hysteresis": "Hysteresis (Minutes)",
+                    "max_fuse_load_amps": "Max Fuse Load Override (A)"
+                },
+                "description": "Adjust the behavior of the EVSE Load Balancer. For 'Max Fuse Load Override', a value of 0 means no override and the main fuse size will be used."
+            }
         },
-        "title": "Manage EVSE Load Balancer",
-        "description": "How long the available current must be above the current charger setting before increasing it. Averages values over this time period to avoid rapid changes."
-      },
-      "user": {
-        "data": {
-          "charger_device": "EVSE Charger",
-          "meter_device": "Smart Energy Meter",
-          "custom_phase_config": "Advanced energy configuration (use when no energy meter is available)",
-          "fuse_size": "Fuse size per phase (A)",
-          "phase_count": "Number of phases"
+        "error": {
+            "invalid_max_fuse_override": "Max fuse load override value is invalid.",
+            "invalid_number_format": "A numeric value was expected."
         },
-        "description": "Provide your Charger and Meter details.",
-        "title": "Configuration"
-      },
-      "power": {
-        "data": {
-          "l1": "Phase One (L1)",
-          "l2": "Phase Two (L2)",
-          "l3": "Phase Three (L3)",
-          "power_consumption": "Power Consumption",
-          "power_production": "Power Production",
-          "voltage": "Voltage"
+        "abort": {
+            "already_configured": "This device or service is already configured."
+        }
+    },
+    "entity": {
+        "binary_sensor": {
+            "evse_ev_connected": {
+                    "name": "EV connected",
+                    "state": {
+                        "on": "Connected",
+                        "off": "Disconnected"
+                }
+            }
         },
-        "description": "Add a GitHub repo, check the box to add another.",
-        "title": "Add GitHub Repository"
-      }
+        "sensor": {
+            "evse_load_balancing_state": {
+                "name": "Load balancing state",
+                "state": {
+                    "awaiting_charger": "Awaiting charger",
+                    "monitoring_loads": "Monitoring loads",
+                    "error": "Error"
+                }
+            },
+            "evse_charger_state": {
+                "name": "EV connected",
+                "state": {
+                    "Not Connected": "Not Connected",
+                    "EV Connected": "EV Connected",
+                    "Ready to charge": "Ready to charge",
+                    "Charging": "Charging",
+                    "Charging Paused": "Charging Paused",
+                    "EV Connected, Derated": "EV Connected, Derated",
+                    "Ready to charge, Derated": "Ready to charge, Derated",
+                    "Charging, Derated": "Charging, Derated",
+                    "Charging Paused, Derated": "Charging Paused, Derated",
+                    "unknown": "Unknown"
+                }
+            },
+            "evse_last_check": {
+                "name": "Last check"
+            },
+            "evse_available_current_l1": {
+                "name": "Available current L1"
+            },
+            "evse_available_current_l2": {
+                "name": "Available current L2"
+            },
+            "evse_available_current_l3": {
+                "name": "Available current L3"
+            }
+        }
     }
-  }
 }

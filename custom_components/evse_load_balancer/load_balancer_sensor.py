@@ -28,7 +28,8 @@ class LoadBalancerSensor(SensorEntity):
         self.entity_description = entity_description
         self._coordinator = coordinator
         self._attr_should_poll = False
-        self._attr_name = entity_description.key.replace("_", " ").title()
+        self._attr_has_entity_name = True
+        #self._attr_name = entity_description.key.replace("_", " ").title()
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_{entity_description.key}"
         )

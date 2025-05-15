@@ -1,0 +1,100 @@
+{
+    "title": "EVSE Lastbalanserare",
+    "config": {
+        "error": {
+            "metering_selection_required": "Ange antingen en smart mätare eller välj 'Avancerad energikonfiguration'"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "charger_device": "EVSE-laddare",
+                    "meter_device": "Smart elmätare",
+                    "custom_phase_config": "Avancerad energikonfiguration (använd när ingen energimätare är tillgänglig)",
+                    "fuse_size": "Säkringsstorlek per fas (A)",
+                    "phase_count": "Antal faser"
+                },
+                "description": "Ange detaljer för din laddare och mätare.",
+                "title": "Konfiguration"
+            },
+            "power": {
+                "data": {
+                    "l1": "Fas ett (L1)",
+                    "l2": "Fas två (L2)",
+                    "l3": "Fas tre (L3)",
+                    "power_consumption": "Energiförbrukning",
+                    "power_production": "Energiproduktion",
+                    "voltage": "Spänning"
+                },
+                "description": "Ange detaljer för energisensorer för varje fas om anpassad konfiguration är vald.",
+                "title": "Energikonfiguration"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Inställningar för EVSE lastbalanserare",
+                "data": {
+                    "charge_limit_hysteresis": "Hysteres (minuter)",
+                    "max_fuse_load_amps": "Maximal säkringsbelastning (A)"
+                },
+                "description": "Justera beteendet för EVSE lastbalanseraren. För 'Maximal säkringsbelastning' betyder värdet 0 ingen åsidosättning och huvudsäkringens storlek kommer att användas."
+            }
+        },
+        "error": {
+            "invalid_max_fuse_override": "Ogiltigt värde för maximal säkringsåsidosättning.",
+            "invalid_number_format": "Ett numeriskt värde förväntades."
+        },
+        "abort": {
+            "already_configured": "Denna enhet eller tjänst är redan konfigurerad."
+        }
+    },
+    "entity": {
+        "binary_sensor": {
+            "evse_ev_connected": {
+                "name": "Elbil ansluten",
+                "state": {
+                    "on": "Ansluten",
+                    "off": "Frånkopplad"
+                }
+            }
+        },
+        "sensor": {
+            "evse_load_balancing_state": {
+                "name": "Lastbalanseringsläge",
+                "state": {
+                    "awaiting_charger": "Väntar på laddare",
+                    "monitoring_loads": "Övervakar laster",
+                    "error": "Fel"
+                }
+            },
+            "evse_ev_status": {
+                "name": "Fordonsstatus",
+                "state": {
+                    "Not Connected": "Inte ansluten",
+                    "EV Connected": "Elbil ansluten",
+                    "Ready to charge": "Redo att ladda",
+                    "Charging": "Laddar",
+                    "Charging Paused": "Laddning pausad",
+                    "EV Connected, Derated": "Elbil ansluten, reducerad effekt",
+                    "Ready to charge, Derated": "Redo att ladda, reducerad effekt",
+                    "Charging, Derated": "Laddar, reducerad effekt",
+                    "Charging Paused, Derated": "Laddning pausad, reducerad effekt",
+                    "unknown": "Okänd"
+                }
+            },
+            "evse_last_check": {
+                "name": "Senast kontrollerad"
+            },
+            "evse_available_current_l1": {
+                "name": "Tillgänglig ström L1"
+            },
+            "evse_available_current_l2": {
+                "name": "Tillgänglig ström L2"
+            },
+            "evse_available_current_l3": {
+                "name": "Tillgänglig ström L3"
+            }
+        }
+    }
+}

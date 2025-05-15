@@ -27,6 +27,12 @@ from .const import (
     DOMAIN,
     SUPPORTED_CHARGER_DEVICE_DOMAINS,
     SUPPORTED_METER_DEVICE_DOMAINS,
+    CHARGER_DOMAIN_EASEE,
+    CHARGER_DOMAIN_ZAPTEC,
+    HA_INTEGRATION_DOMAIN_MQTT,
+    MANUFACTURER_AMINA,
+    MODEL_AMINA_S_OFFICIAL_NAME,
+    MODEL_AMINA_S_Z2M_INTERNAL,
 )
 from .exceptions.validation_exception import ValidationExceptionError
 from .options_flow import EvseLoadBalancerOptionsFlow
@@ -45,15 +51,40 @@ CONF_CUSTOM_PHASE_CONFIG = "custom_phase_config"
 CONF_METER_DEVICE = "meter_device"
 CONF_CHARGER_DEVICE = "charger_device"
 
+# --- Construct the specific filter list for charger devices ---
+_charger_device_filter_list: list[dict[str, str]] = []
+
+if CHARGER_DOMAIN_EASEE in SUPPORTED_CHARGER_DEVICE_DOMAINS:
+    _charger_device_filter_list.append({"integration": CHARGER_DOMAIN_EASEE})
+
+if CHARGER_DOMAIN_ZAPTEC in SUPPORTED_CHARGER_DEVICE_DOMAINS:
+    _charger_device_filter_list.append({"integration": CHARGER_DOMAIN_ZAPTEC})
+
+if HA_INTEGRATION_DOMAIN_MQTT in SUPPORTED_CHARGER_DEVICE_DOMAINS:
+    _charger_device_filter_list.append(
+        {
+            "integration": HA_INTEGRATION_DOMAIN_MQTT,
+            "manufacturer": MANUFACTURER_AMINA,
+            "model": MODEL_AMINA_S_OFFICIAL_NAME
+        }
+    )
+    # Add a second filter if the internal Z2M model name is different and might be used
+    if MODEL_AMINA_S_OFFICIAL_NAME != MODEL_AMINA_S_Z2M_INTERNAL:
+        _charger_device_filter_list.append(
+            {
+                "integration": HA_INTEGRATION_DOMAIN_MQTT,
+                "manufacturer": MANUFACTURER_AMINA,
+                "model": MODEL_AMINA_S_Z2M_INTERNAL
+            }
+        )
+# --- End of filter list construction ---
+
 STEP_INIT_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_CHARGER_DEVICE): DeviceSelector(
             DeviceSelectorConfig(
                 multiple=False,
-                filter=[
-                    {"integration": domain}
-                    for domain in SUPPORTED_CHARGER_DEVICE_DOMAINS
-                ],
+                filter=_charger_device_filter_list, # MODIFIED: Use the new specific filter list
             )
         ),
         vol.Required(CONF_FUSE_SIZE): NumberSelector(
@@ -170,7 +201,7 @@ class EvseLoadBalancerConfigFlow(ConfigFlow, domain=DOMAIN):
             except ValidationExceptionError as ex:
                 errors[ex.base] = ex.key
             if not errors:
-                self.data = input_data
+                self.data.update(input_data) # Changed to update for multi-step data accumulation
                 if self.data.get(CONF_CUSTOM_PHASE_CONFIG, False):
                     return await self.async_step_power()
                 return self.async_create_entry(
@@ -194,7 +225,7 @@ class EvseLoadBalancerConfigFlow(ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             if not errors:
-                self.data = self.data | input_data
+                self.data.update(input_data) # Merge with existing data
                 return self.async_create_entry(
                     title="EVSE Load Balancer",
                     data=self.data,
