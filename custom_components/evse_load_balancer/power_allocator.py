@@ -2,7 +2,6 @@
 
 import logging
 from math import floor
-from time import time
 
 from .chargers.charger import Charger
 from .const import Phase
@@ -17,18 +16,26 @@ class ChargerState:
         """Initialize charger state."""
         self.charger = charger
         self.requested_current: dict[Phase, int] | None = None
-        self.last_set_current: dict[Phase, int] | None = None
+        self.last_calculated_current: dict[Phase, int] | None = None
+        self.last_applied_current: dict[Phase, int] | None = None
         self.last_update_time: int = 0
         self.manual_override_detected: bool = False
+        self.initialized: bool = False
 
     def initialize(self) -> bool:
         """Initialize with current charger settings."""
+        if self.initialized:
+            _LOGGER.debug("Charger %s already initialized", self.charger.id)
+            return True
+
         current_limits = self.charger.get_current_limit()
         if current_limits:
             self.requested_current = dict(current_limits)
-            self.last_set_current = dict(current_limits)
+            self.last_applied_current = dict(current_limits)
             _LOGGER.info("Charger initialized with limits: %s", current_limits)
+            self.initialized = True
             return True
+
         _LOGGER.warning("Could not initialize charger - no current limits available")
         return False
 
@@ -36,15 +43,16 @@ class ChargerState:
         """Check if the charger has been manually overridden."""
         current_setting = self.charger.get_current_limit()
 
-        if not current_setting or not self.last_set_current:
+        if not current_setting or not self.last_applied_current:
             return False
 
         # Check if current differs from what we last set
         if any(
-            current_setting[phase] != self.last_set_current[phase]
+            current_setting[phase] != self.last_applied_current[phase]
             for phase in current_setting
         ):
             self.requested_current = dict(current_setting)
+            self.last_applied_current = dict(current_setting)
             self.manual_override_detected = True
             _LOGGER.info(
                 "Manual override detected for charger. New requested current: %s",
@@ -69,35 +77,35 @@ class PowerAllocator:
     All without actually updating the chargers, which is done in the coordinator.
     """
 
-    def __init__(self, _chargers: dict[str, ChargerState] | None = None) -> None:
+    def __init__(self) -> None:
         """Initialize the power allocator."""
-        self._chargers: dict[str, ChargerState] = _chargers if _chargers else {}
+        self._chargers: dict[str, ChargerState] = {}
 
-    def add_charger(self, charger_id: str, charger: Charger) -> bool:
+    def add_charger(self, charger: Charger) -> bool:
         """
         Add a charger to be managed by the allocator.
 
-        Args:
-            charger_id: Unique ID for the charger
-            charger: The charger instance
-
-        Returns:
-            True if successfully added
-
+        Returns True if added successfully, False if charger already exists
         """
+        charger_id = charger.id
         if charger_id in self._chargers:
             _LOGGER.warning("Charger %s already exists in PowerAllocator", charger_id)
             return False
 
         charger_state = ChargerState(charger)
-        if charger_state.initialize():
-            self._chargers[charger_id] = charger_state
-            _LOGGER.info("Added charger %s to PowerAllocator", charger_id)
-            return True
-        return False
+        self._chargers[charger_id] = charger_state
+        _LOGGER.info("Added charger %s to PowerAllocator", charger_id)
 
-    def remove_charger(self, charger_id: str) -> bool:
+        return True
+
+    def add_charger_and_initialize(self, charger: Charger) -> bool:
+        """Add charger and immediately initialize."""
+        if self.add_charger(charger):
+            self._chargers[charger.id].initialize()
+
+    def remove_charger(self, charger: Charger) -> bool:
         """Remove a charger from the allocator."""
+        charger_id = charger.id
         if charger_id in self._chargers:
             del self._chargers[charger_id]
             _LOGGER.info("Removed charger %s from PowerAllocator", charger_id)
@@ -118,14 +126,10 @@ class PowerAllocator:
         return len(self._active_chargers) > 0
 
     def update_allocation(
-        self, available_currents: dict[Phase, int], now: float = time()
+        self, available_currents: dict[Phase, int]
     ) -> dict[str, dict[Phase, int]]:
         """
         Update power allocation for all chargers based on available current.
-
-        Args:
-            available_currents: Dictionary of available current per phase
-            now: Current timestamp
 
         Returns:
             Dict mapping charger_id to new current limits (empty if no updates)
@@ -134,8 +138,11 @@ class PowerAllocator:
         if not self._active_chargers:
             return {}
 
-        # Check for manual overrides
+        # Check for initialized chargers and manual overrides
         for state in self._active_chargers.values():
+            if not state.initialized and not state.initialize():
+                continue
+
             state.detect_manual_override()
 
         # Allocate current based on strategy
@@ -163,11 +170,24 @@ class PowerAllocator:
 
             if has_changes:
                 result[charger_id] = new_limits
-                state.last_set_current = dict(new_limits)
-                state.last_update_time = int(now)
+                state.last_calculated_current = dict(new_limits)
                 state.manual_override_detected = False
 
         return result
+
+    def update_applied_current(
+        self, charger_id: str, applied_current: dict[Phase, int], timestamp: int
+    ) -> None:
+        """Update the record of what current was actually applied to the charger."""
+        if charger_id not in self._chargers:
+            _LOGGER.warning("Charger %s not found in PowerAllocator", charger_id)
+
+        state = self._chargers[charger_id]
+        state.last_applied_current = dict(applied_current)
+        state.last_update_time = timestamp
+        _LOGGER.debug(
+            "Updated applied current for charger %s: %s", charger_id, applied_current
+        )
 
     def _allocate_current(
         self, available_currents: dict[Phase, int]
@@ -177,8 +197,10 @@ class PowerAllocator:
 
         For negative available current (overcurrent), distribute cuts proportionally.
         For positive available current, distribute increases proportionally.
+
+        Returns a dictionary mapping charger_id to new current limits.
         """
-        result = {}
+        result: dict[str, dict[Phase, int]] = {}
 
         # Handle overcurrent and recovery separately for each phase
         for phase, available_current in available_currents.items():
@@ -188,6 +210,15 @@ class PowerAllocator:
             elif available_current > 0:
                 # Recovery situation - distribute increases proportionally
                 self._distribute_increases(phase, available_current, result)
+
+        # Flatten synced chargers which expect the current to be equal
+        # across all phases
+        for charger_id, charger_currents in result.items():
+            state = self._active_chargers[charger_id]
+            if state.charger.has_synced_phase_limits():
+                # Set all phases to the minimum of the new current setting
+                min_current = min(charger_currents.values())
+                result[charger_id] = dict.fromkeys(result[charger_id], min_current)
 
         return result
 

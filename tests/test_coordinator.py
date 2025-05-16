@@ -59,7 +59,7 @@ def mock_meter():
 @pytest.fixture
 def mock_charger():
     """Create a mock charger."""
-    charger = MockCharger(initial_current=16, mock_id=TEST_CHARGER_ID)
+    charger = MockCharger(initial_current=16, charger_id=TEST_CHARGER_ID)
     charger.set_can_charge(True)
 
     # Patch all public methods with MagicMock, but call the original method as well
@@ -189,6 +189,40 @@ def test_no_update_when_available_current_unknown(coordinator):
     coordinator._balancer_algo.compute_availability.assert_not_called()
     coordinator._power_allocator.update_allocation.assert_not_called()
     coordinator._charger.set_current_limit.assert_not_called()
+
+
+def test_only_update_when_currents_have_changed(coordinator):
+    """Tests that no update happens on the allocator when the currents haven't changed."""
+    # Execute an update cycle
+    coordinator._execute_update_cycle(datetime.now())
+
+    # Verify balancer and allocator were called
+    coordinator._balancer_algo.compute_availability.assert_called_once()
+    coordinator._power_allocator.update_allocation.assert_called_once()
+    allocation_args = coordinator._power_allocator.update_allocation.call_args[1]
+    assert allocation_args["available_currents"] == {
+        Phase.L1: -2,
+        Phase.L2: 3,
+        Phase.L3: 5
+    }
+
+    # Call second time, with same values, verify no update
+    coordinator._execute_update_cycle(datetime.now())
+    assert coordinator._balancer_algo.compute_availability.call_count == 2
+    assert coordinator._power_allocator.update_allocation.call_count == 1
+
+    # Mock different values
+    coordinator._balancer_algo.compute_availability.return_value = dict.fromkeys(Phase, 2)
+
+    coordinator._execute_update_cycle(datetime.now())
+    assert coordinator._balancer_algo.compute_availability.call_count == 3
+    assert coordinator._power_allocator.update_allocation.call_count == 2
+    allocation_args = coordinator._power_allocator.update_allocation.call_args[1]
+    assert allocation_args["available_currents"] == {
+        Phase.L1: 2,
+        Phase.L2: 2,
+        Phase.L3: 2
+    }
 
 
 def test_no_update_when_charger_shouldnt_be_checked(coordinator):

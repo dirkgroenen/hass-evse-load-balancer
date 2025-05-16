@@ -80,7 +80,7 @@ class OptimisedLoadBalancer(Balancer):
                     self._recovery_risk_history[phase].clear()
                     self._cumulative_trip_risk[phase] = 0.0
             # 2) availability - decay risk and handle recovery of current
-            elif avail > 0:
+            else:
                 risk_decay = self.risk_decay_per_second * elapsed
                 self._cumulative_trip_risk[phase] = max(
                     0.0, self._cumulative_trip_risk[phase] - risk_decay

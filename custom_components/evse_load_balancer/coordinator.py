@@ -77,6 +77,8 @@ class EVSELoadBalancerCoordinator:
             identifiers={(DOMAIN, self.config_entry.entry_id)}
         )
 
+        self._previous_current_availability: dict[Phase, int] | None = None
+
     async def async_setup(self) -> None:
         """Set up the coordinator."""
         self._unsub.append(
@@ -97,9 +99,8 @@ class EVSELoadBalancerCoordinator:
             * 60
         )
 
-        self._power_allocator = PowerAllocator(
-            chargers={self._charger.id: self._charger}
-        )
+        self._power_allocator = PowerAllocator()
+        self._power_allocator.add_charger(charger=self._charger)
 
     async def async_unload(self) -> None:
         """Unload the coordinator."""
@@ -181,33 +182,49 @@ class EVSELoadBalancerCoordinator:
         self._async_update_sensors()
 
         # Run the actual charger update
-        if self._should_check_charger():
-            # Computes relative limit. Negative in case of overcurrent
-            # and positive in case of availability
-            normalised_current_availability = self._balancer_algo.compute_availability(
-                available_currents=available_currents,
-                max_limits=max_current,
-                now=now.timestamp(),
+        if not self._should_check_charger():
+            return
+
+        # Computes relative limit. Negative in case of overcurrent
+        # and positive in case of availability
+        computed_availability = self._balancer_algo.compute_availability(
+            available_currents=available_currents,
+            max_limits=max_current,
+            now=now.timestamp(),
+        )
+
+        if not self._should_act_upon_availability(currents=computed_availability):
+            return
+
+        allocation_results = self._power_allocator.update_allocation(
+            available_currents=computed_availability
+        )
+
+        # Allocator has been build to support multiple chargers. Right now
+        # the coordinator only supports one charger. So we need to
+        # iterate over the allocation results and update the charger
+        # with the results. Just a bit of prep for the future...
+        allocation_result = allocation_results.get(self._charger.id, None)
+        if allocation_result and self._may_update_charger_settings():
+            self._update_charger_settings(allocation_result)
+            self._power_allocator.update_applied_current(
+                charger_id=self._charger.id,
+                applied_current=allocation_result,
+                timestamp=now.timestamp(),
             )
 
-            allocation_results = self._power_allocator.update_allocation(
-                available_currents=normalised_current_availability,
-                now=now.timestamp(),
-            )
+    def _should_act_upon_availability(self, currents: dict[Phase, int]) -> bool:
+        """Check if any of the current values have changed and should be acted upon."""
+        if self._previous_current_availability is None:
+            self._previous_current_availability = currents
+            return True
 
-            # Allocator has been build to support multiple chargers. Right now
-            # the coordinator only supports one charger. So we need to
-            # iterate over the allocation results and update the charger
-            # with the results. Just a bit of prep for the future...
-            allocation_result = allocation_results[self._charger.id]
-            if self._may_update_charger_settings():
-                self._update_charger_settings(allocation_result)
-            else:
-                _LOGGER.debug(
-                    "Charger settings not updated. Last update: %s, current time: %s",
-                    self._last_charger_target_update[1],
-                    int(time()),
-                )
+        previous = self._previous_current_availability
+        if any(previous[p] != current for p, current in currents.items()):
+            self._previous_current_availability = currents
+            return True
+
+        return False
 
     def _async_update_sensors(self) -> None:
         for sensor in self._sensors:
