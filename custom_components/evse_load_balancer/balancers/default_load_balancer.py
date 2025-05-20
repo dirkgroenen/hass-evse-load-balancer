@@ -23,7 +23,7 @@ class DefaultLoadBalancer(Balancer):
         self._hysteresis_start = dict.fromkeys(Phase)
         self._hysteresis_buffer = dict.fromkeys(Phase)
 
-    def compute_new_limits(
+    def compute_availability(
         self,
         current_limits: dict[Phase, int],
         available_currents: dict[Phase, int],

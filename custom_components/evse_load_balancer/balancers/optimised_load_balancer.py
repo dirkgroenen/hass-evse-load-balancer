@@ -26,8 +26,7 @@ class OptimisedLoadBalancer(Balancer):
         recovery_window: float = 900.0,  # seconds over which recovery is buffered.
         trip_risk_threshold: float = 60.0,  # risk value threshold to trigger reduction.
         risk_decay_per_second: float = 1.0,  # how quickly accumulated risk decays.
-        recovery_risk_threshold: float = 60
-        * 0.4,  # threshold for considering recovery stable.
+        recovery_risk_threshold: float = 60 * 0.4,  # threshold for stable  recovery.
         recovery_std: float = 2.5,  # maximum std dev allowed in recovery measurements.
     ) -> None:
         """Initialize the optimised load balancer."""
@@ -47,31 +46,40 @@ class OptimisedLoadBalancer(Balancer):
         self.recovery_risk_threshold = recovery_risk_threshold
         self.recovery_std = recovery_std
 
-    def compute_new_limits(
+        self._last_computed_availability = {}
+
+    def compute_availability(
         self,
-        current_limits: dict[Phase, int],
         available_currents: dict[Phase, int],
         max_limits: dict[Phase, int],
         now: float = time(),
     ) -> dict[Phase, int]:
-        """Compute new charger limits."""
+        """Compute available currents."""
         new_limits = {}
         elapsed = now - self._last_compute
-        for phase, avail in available_currents.items():
-            current_limit = current_limits[phase]
-            max_limit = max_limits[phase]
-            new_target = current_limit
 
-            # If available current is negative, calculate risk increase.
+        for phase, avail in available_currents.items():
+            max_limit = max_limits[phase]
+            new_target = self._last_computed_availability.get(phase, avail)
+
+            # 1) overcurrent - accumulate risk & handle reduction of current
             if avail < 0:
-                overcurrent_percentage = abs(avail) / current_limit
+                overcurrent_percentage = abs(avail) / max_limit
                 risk_increase = (
                     self.calculate_trip_risk(overcurrent_percentage) * elapsed
                 )
                 self._cumulative_trip_risk[phase] += risk_increase
                 self._recovery_risk_history[phase].append(risk_increase)
-            # When available current is positive, decay risk and buffer recovery data.
-            elif avail > 0:
+
+                # If risk exceeds threshold, immediately reduce power setting.
+                if self._cumulative_trip_risk[phase] >= self.trip_risk_threshold:
+                    new_target = avail
+                    self._last_adjustment_time[phase] = now
+                    self._recovery_current_history[phase].clear()
+                    self._recovery_risk_history[phase].clear()
+                    self._cumulative_trip_risk[phase] = 0.0
+            # 2) availability - decay risk and handle recovery of current
+            else:
                 risk_decay = self.risk_decay_per_second * elapsed
                 self._cumulative_trip_risk[phase] = max(
                     0.0, self._cumulative_trip_risk[phase] - risk_decay
@@ -79,34 +87,26 @@ class OptimisedLoadBalancer(Balancer):
                 self._recovery_current_history[phase].append(avail)
                 self._recovery_risk_history[phase].append(-risk_decay)
 
-            # If risk exceeds threshold, immediately reduce power setting.
-            if self._cumulative_trip_risk[phase] >= self.trip_risk_threshold:
-                new_target = max(0, current_limit + avail)
-                self._last_adjustment_time[phase] = now
-                self._recovery_current_history[phase].clear()
-                self._recovery_risk_history[phase].clear()
-                self._cumulative_trip_risk[phase] = 0.0
-            # If enough time has passed and the current setting is below maximum,
-            # consider increasing the power setting after stable recovery.
-            elif (
-                now - self._last_adjustment_time[phase] >= self.recovery_window
-                and current_limit < max_limit
-                and self.is_stable_recovery(self._recovery_risk_history[phase])
-            ):
-                # Ensure stability via standard deviation.
-                std_val = pstdev(self._recovery_current_history[phase])
-                if std_val < self.recovery_std:
-                    new_target = current_limit + median(
-                        self._recovery_current_history[phase]
-                    )
-                    self._last_adjustment_time[phase] = now
-                    self._recovery_current_history[phase].clear()
-                    self._recovery_risk_history[phase].clear()
-                    self._cumulative_trip_risk[phase] = 0.0
+                # If enough time has passed and the current setting is below maximum,
+                # consider increasing the power setting after stable recovery.
+                if now - self._last_adjustment_time[
+                    phase
+                ] >= self.recovery_window and self.is_stable_recovery(
+                    self._recovery_risk_history[phase]
+                ):
+                    # Ensure stability via standard deviation.
+                    std_val = pstdev(self._recovery_current_history[phase])
+                    if std_val < self.recovery_std:
+                        new_target = median(self._recovery_current_history[phase])
+                        self._last_adjustment_time[phase] = now
+                        self._recovery_current_history[phase].clear()
+                        self._recovery_risk_history[phase].clear()
+                        self._cumulative_trip_risk[phase] = 0.0
 
             # New limit is max current scaled by the current power setting.
-            new_limits[phase] = min(max_limit, new_target)
+            new_limits[phase] = new_target
 
+        self._last_computed_availability = new_limits.copy()
         self._last_compute = now
         return new_limits
 

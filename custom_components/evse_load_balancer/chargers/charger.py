@@ -31,9 +31,23 @@ class Charger(ABC):
         self.config_entry = config_entry
         self.device = device
 
+    @property
+    def id(self) -> str:
+        """Return the unique ID of the charger."""
+        return self.config_entry.entry_id
+
     @abstractmethod
     def set_phase_mode(self, mode: PhaseMode, phase: Phase) -> None:
         """Set the phase mode of the charger."""
+
+    @abstractmethod
+    def has_synced_phase_limits(self) -> bool:
+        """
+        Return whether the charger has synced phase limits.
+
+        This means that the charger is able to set the current limit for each
+        phase independently.
+        """
 
     @abstractmethod
     async def set_current_limit(self, limit: dict[Phase, int]) -> None:

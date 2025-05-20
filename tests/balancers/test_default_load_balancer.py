@@ -38,7 +38,7 @@ def test_immediate_reduction():
     # Simulate time (ensure hysteresis period has passed for immediate reduction)
     now = time.time() + hysteresis_period + 1
 
-    new_limits = balancer.compute_new_limits(current_limits, available_currents, max_limits, now=now)
+    new_limits = balancer.compute_availability(current_limits, available_currents, max_limits, now=now)
     # Expect that each phase is reduced immediately: new_limit = current + available_current (clamped to non-negative).
     assert new_limits[Phase.L1] == max(0, current_limits[Phase.L1] + available_currents[Phase.L1])
     assert new_limits[Phase.L2] == max(0, current_limits[Phase.L2] + available_currents[Phase.L2])
@@ -76,12 +76,12 @@ def test_buffered_increase():
     num_calls = 5
     for i in range(num_calls):
         current_time = start_time + i * 10  # every 10 seconds
-        # Call compute_new_limits; it won't flush because hysteresis_period hasn't elapsed.
-        _ = balancer.compute_new_limits(current_limits, available_currents, max_limits, now=current_time)
+        # Call compute_availability; it won't flush because hysteresis_period hasn't elapsed.
+        _ = balancer.compute_availability(current_limits, available_currents, max_limits, now=current_time)
 
     # Now, simulate a final call after the hysteresis period has elapsed.
     final_time = start_time + hysteresis_period + 1
-    new_limits = balancer.compute_new_limits(current_limits, available_currents, max_limits, now=final_time)
+    new_limits = balancer.compute_availability(current_limits, available_currents, max_limits, now=final_time)
 
     # The buffered values for each phase should be [available_current]*num_calls.
     # Thus, the median for Phase.L1 is median([4,4,4,4,4]) which is 4, etc.

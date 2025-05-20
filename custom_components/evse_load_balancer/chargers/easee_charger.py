@@ -116,6 +116,15 @@ class EaseeCharger(HaDevice, Charger):
             return None
         return dict.fromkeys(Phase, int(state))
 
+    def has_synced_phase_limits(self) -> bool:
+        """
+        Return whether the charger has synced phase limits.
+
+        Currently not supported - but can be done by setting correct
+        phase control or 'master charger' circuit control
+        """
+        return True
+
     def _get_status(self) -> str | None:
         return self._get_entity_state_by_translation_key(
             EaseeEntityMap.Status,

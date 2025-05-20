@@ -10,7 +10,7 @@ class Balancer(ABC):
     """Abstract base class for a load balancing algorithm."""
 
     @abstractmethod
-    def compute_new_limits(
+    def compute_availability(
         self,
         current_limits: dict[Phase, int],
         available_currents: dict[Phase, int],

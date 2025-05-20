@@ -20,38 +20,55 @@ def test_default_init():
 
 def test_negative_available_current_triggers_reduction():
     lb = OptimisedLoadBalancer()
-    # Setup a scenario with negative available current triggering reduction.
-    # For each phase, current_limit=32, available current = -5, max_limit=32.
-    current_limits = {phase: 32 for phase in Phase}
-    available_currents = {phase: -5 for phase in Phase}
+    available_currents_one = {phase: 10 for phase in Phase}
+    available_currents_two = {phase: -5 for phase in Phase}
     max_limits = {phase: 32 for phase in Phase}
-    # Use a fixed "now" time so that elapsed time is large enough.
-    now = 100  # seconds; since initial last_adjustment_time is 0, elapsed = 100.
-    new_limits = lb.compute_new_limits(current_limits, available_currents, max_limits, now)
+    now = 100
+    lb.compute_availability(available_currents_one, max_limits, 0)
+    computed_availability = lb.compute_availability(available_currents_two, max_limits, now)
     # Calculation:
     # overcurrent_percentage = abs(-5)/32 ~ 0.15625 => risk increase rate = 60/30 = 2.
     # risk_increase = 2 * (100) = 200, which exceeds trip_risk_threshold (60).
-    # Therefore, new_target becomes max(0, 32 + (-5)) = 27, and then new_limit = min(32, 27) = 27.
+    # Therefore, the returned available current should be -5.
     for phase in Phase:
-        assert new_limits[phase] == 27
+        assert computed_availability[phase] == -5
         # Check that the history is cleared and cumulative risk reset.
         assert len(lb._recovery_current_history[phase]) == 0
         assert lb._cumulative_trip_risk[phase] == 0.0
         assert lb._last_adjustment_time[phase] == now
 
 
+def test_negative_available_current_within_risk_boundary():
+    lb = OptimisedLoadBalancer()
+    available_currents_one = {phase: 5 for phase in Phase}
+    available_currents_two = {phase: -5 for phase in Phase}
+    max_limits = {phase: 32 for phase in Phase}
+    now = 5
+    lb.compute_availability(available_currents_one, max_limits, 0)
+    computed_availability = lb.compute_availability(available_currents_two, max_limits, now)
+    # Calculation:
+    # overcurrent_percentage = abs(-5)/32 ~ 0.15625 => risk increase rate = 60/30 = 2.
+    # risk_increase = 2 * (5) = 10, which is less than trip_risk_threshold (60).
+    # Therefore, the returned available current should be -5.
+    for phase in Phase:
+        assert computed_availability[phase] == 5
+        # Check if added to risk history
+        assert len(lb._recovery_current_history[phase]) == 1
+        assert lb._cumulative_trip_risk[phase] == 10.0
+        assert lb._last_adjustment_time[phase] == 0
+
+
 def test_positive_available_current_no_change_before_recovery():
     lb = OptimisedLoadBalancer()
     # When available current is positive but not enough time for recovery, limits remain unchanged.
-    current_limits = {phase: 20 for phase in Phase}
     available_currents = {phase: 5 for phase in Phase}
     max_limits = {phase: 30 for phase in Phase}
     now = 100  # elapsed is 100, which is less than recovery_window (900)
-    new_limits = lb.compute_new_limits(current_limits, available_currents, max_limits, now)
+    new_limits = lb.compute_availability(available_currents, max_limits, now)
     # In this branch, the risk decays and available current is buffered.
     for phase in Phase:
         # No update should occur; limit remains same.
-        assert new_limits[phase] == 20
+        assert new_limits[phase] == 5
         # The recovery history should now contain the appended available current.
         assert 5 in lb._recovery_current_history[phase]
         # Cumulative risk remains at 0 after decay.
@@ -63,7 +80,6 @@ def test_positive_available_current_no_change_before_recovery():
 def test_stable_recovery_triggers_increase():
     lb = OptimisedLoadBalancer()
     # Setup a scenario where recovery is stable and enough time has elapsed.
-    current_limits = {phase: 20 for phase in Phase}
     available_currents = {phase: 5 for phase in Phase}
     max_limits = {phase: 30 for phase in Phase}
     # Manually pre-populate recovery history to simulate stable recovery.
@@ -72,9 +88,9 @@ def test_stable_recovery_triggers_increase():
         # Set last adjustment time to 0 to force elapsed time.
         lb._last_adjustment_time[phase] = 0.0
     now = 1000  # elapsed (1000 seconds) is >= recovery_window (900)
-    new_limits = lb.compute_new_limits(current_limits, available_currents, max_limits, now)
+    new_limits = lb.compute_availability(available_currents, max_limits, now)
     for phase in Phase:
-        assert new_limits[phase] == 25
+        assert new_limits[phase] == 5
         assert len(lb._recovery_current_history[phase]) == 0
         assert lb._cumulative_trip_risk[phase] == 0.0
         assert lb._last_adjustment_time[phase] == now

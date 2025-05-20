@@ -4,6 +4,7 @@ target-version = "py313"
 
 exclude = [
     "tests",
+    "sim",
 ]
 
 [lint]

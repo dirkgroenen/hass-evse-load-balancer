@@ -1,124 +1,138 @@
-"""
-Simulation of the balancers for EVSE Load Balancing.
-
-Use it to test and simulate the working of the balancer, based on a
-short snippet of real-world data.
-"""
-
+import logging
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# For simulation we use our extracted OptimisedLoadBalancer class.
-# Adjust the import path as needed.
 from custom_components.evse_load_balancer.balancers.optimised_load_balancer import (
     OptimisedLoadBalancer,
 )
+from custom_components.evse_load_balancer.chargers.charger import Charger
 from custom_components.evse_load_balancer.const import Phase
+from custom_components.evse_load_balancer.power_allocator import PowerAllocator
+
+logging.basicConfig(level=logging.INFO)
+_LOGGER = logging.getLogger(__name__)
 
 # Simulation constants
-CURRENT_LIMIT = 25.0  # Used for overcurrent % calculations inside the balancer logic.
-RAMP_DURATION = 15  # Duration (in simulation steps) over which ramping is applied.
-MAX_CHARGE_CURRENT_PER_PHASE = 16.0  # Maximum per-phase current
+FUSE_SIZE = 25.0
+MAX_CHARGE_CURRENT_PER_PHASE = 16.0
 
-# Inladen van data
-df_final_selected = pd.read_csv(
+
+class FakeCharger(Charger):
+    """A fake charger for simulation purposes."""
+
+    def __init__(self):
+        self._current_limit = dict.fromkeys(Phase, 0)
+        self._max_limit = dict.fromkeys(Phase, MAX_CHARGE_CURRENT_PER_PHASE)
+
+    @property
+    def id(self) -> str:
+        return "fake_charger"
+
+    def can_charge(self) -> bool:
+        return True
+
+    def car_connected(self) -> bool:
+        return True
+
+    def get_current_limit(self) -> dict[Phase, float]:
+        return dict(self._current_limit)
+
+    def get_max_current_limit(self) -> dict[Phase, float]:
+        return dict(self._max_limit)
+
+    def has_synced_phase_limits(self) -> bool:
+        return True
+
+    def set_current_limit(self, limit) -> None:
+        self._current_limit = dict(limit)
+
+    def set_phase_mode(self, mode, phase):
+        pass
+
+
+# Load CSV data
+df = pd.read_csv(
     Path.resolve(Path(__file__).parent / "simulation_data.csv"),
     index_col="last_changed",
     parse_dates=True,
 )
 
-# Create the OptimisedLoadBalancer using our simulation settings.
-balancer = OptimisedLoadBalancer(
-    recovery_window=900.0,
-    trip_risk_threshold=60.0,
-    risk_decay_per_second=1.0,
-    recovery_risk_threshold=60 * 0.4,
-    recovery_std=2.5,
-)
+# Setup simulation objects
+balancer = OptimisedLoadBalancer()
+allocator = PowerAllocator()
+charger = FakeCharger()
+allocator.add_charger(charger)
 
-# Initially, the charger current per phase is the maximum.
+# Initial state
 current_limits = dict.fromkeys(Phase, MAX_CHARGE_CURRENT_PER_PHASE)
-max_limits = dict.fromkeys(Phase, MAX_CHARGE_CURRENT_PER_PHASE)
-
-# For ramp simulation we store both start and target limits per phase and a
-# common ramp counter.
-ramp_start = current_limits.copy()
-ramp_target = current_limits.copy()
-ramp_time_left = 0  # Indicates if we are currently ramping.
-
-# Logging lists for simulation plotting.
-log_time = []
-log_charger_limits = []
-log_available_current = {phase: [] for phase in Phase}
-log_events = []
-stat_kwh_charged = 0.0
-
+max_limits = dict.fromkeys(Phase, FUSE_SIZE)
 prev_timestamp = None
 
-for timestamp, row in df_final_selected.iterrows():
+log_time = []
+log_charger_limits = []
+log_computed_current = {phase: [] for phase in Phase}
+log_available_current = {phase: [] for phase in Phase}
+stat_kwh_charged = 0.0
+
+_previous_computed_current = None
+
+for timestamp, row in df.iterrows():
     now = timestamp
     elapsed_seconds = (now - prev_timestamp).total_seconds() if prev_timestamp else 0
 
-    # Determine charger load per phase from current limits (simulate charger demand)
-    # In this simulation we assume the charger “draws” the set current.
-    charger_load = {phase: current_limits[phase] for phase in Phase}
+    # Simulate charger load per phase
+    charger_load = {phase: charger.get_current_limit()[phase] for phase in Phase}
 
-    # Calculate available current per phase based on measured corrected currents.
-    # (Assuming row has keys: 'corrected_l1', 'corrected_l2', 'corrected_l3')
+    # Calculate available current per phase
     available_currents = {
         Phase.L1: row["corrected_l1"] - charger_load[Phase.L1],
         Phase.L2: row["corrected_l2"] - charger_load[Phase.L2],
         Phase.L3: row["corrected_l3"] - charger_load[Phase.L3],
     }
 
-    event = None
-
-    # If we are in a ramping phase, update limits gradually.
-    if ramp_time_left > 0:
-        ramp_fraction = (RAMP_DURATION - ramp_time_left + 1) / RAMP_DURATION
-        for phase in Phase:
-            current_limits[phase] = (
-                ramp_start[phase]
-                + (ramp_target[phase] - ramp_start[phase]) * ramp_fraction
-            )
-        ramp_time_left -= 1
-
-    # Not ramping: compute new limits using our OptimisedLoadBalancer.
-    new_limits = balancer.compute_new_limits(
-        current_limits, available_currents, max_limits, now=now.timestamp()
+    # Balancer computes phase deltas
+    computed_availability = balancer.compute_availability(
+        available_currents=available_currents,
+        max_limits=max_limits,
+        now=now.timestamp(),
     )
-    # If any phase changed, trigger a ramp by storing current limits as start and
-    # new_limits as target.
-    if ramp_time_left == 0 and any(
-        new_limits[ph] != current_limits[ph] for ph in Phase
-    ):
-        ramp_start = current_limits.copy()
-        ramp_target = new_limits.copy()
-        ramp_time_left = RAMP_DURATION
-        event = (
-            "increase"
-            if any(new_limits[ph] > current_limits[ph] for ph in Phase)
-            else "decrease"
-        )
 
-    # Log outputs for plotting
+    if _previous_computed_current != computed_availability:
+        _previous_computed_current = computed_availability
+
+        # PowerAllocator distributes available current
+        allocation_results = allocator.update_allocation(computed_availability)
+        allocation_result = allocation_results.get(charger.id, None)
+
+        # Apply new limits if needed
+        if allocation_result:
+            _LOGGER.info("Setting new current limit for charger %s: %s", charger.id, allocation_result)
+            charger.set_current_limit(allocation_result)
+            allocator.update_applied_current(
+                charger_id=charger.id,
+                applied_current=allocation_result,
+                timestamp=now.timestamp(),
+            )
+
+    # Logging for analysis
     log_time.append(now)
-    log_charger_limits.append(min(current_limits.values()))
+    log_charger_limits.append(min(charger.get_current_limit().values()))
     for phase in Phase:
         log_available_current[phase].append(available_currents[phase])
-    log_events.append(event)
 
-    # Calculate kWh charged (simple simulation: per-phase current * constant factor)
-    # Here we assume 3 phases and a conversion factor (.23) from A to kW over the
-    # sampled duration.
     for phase in Phase:
-        stat_kwh_charged += (current_limits[phase] * 0.23) * (elapsed_seconds / 3600)
+        log_computed_current[phase].append(computed_availability[phase])
+
+    # Calculate kWh charged (simple simulation)
+    for phase in Phase:
+        stat_kwh_charged += (charger.get_current_limit()[phase] * 0.23) * (elapsed_seconds / 3600)
 
     prev_timestamp = now
 
-# Prepare a DataFrame for plotting.
+# Optionally, plot results as in your original script
+
 df_log = pd.DataFrame(
     {
         "timestamp": log_time,
@@ -126,58 +140,24 @@ df_log = pd.DataFrame(
         Phase.L1: log_available_current[Phase.L1],
         Phase.L2: log_available_current[Phase.L2],
         Phase.L3: log_available_current[Phase.L3],
-        "event": log_events,
+        "Computed L1": log_computed_current[Phase.L1],
+        "Computed L2": log_computed_current[Phase.L2],
+        "Computed L3": log_computed_current[Phase.L3],
     }
 ).set_index("timestamp")
 
-# Plotting the simulation results.
 fig, ax1 = plt.subplots(figsize=(18, 5))
-ax1.plot(
-    df_log.index,
-    df_log[Phase.L1],
-    label="Available L1 (A)",
-    color="green",
-    linewidth=1,
-    alpha=0.7,
-)
-ax1.plot(
-    df_log.index,
-    df_log[Phase.L2],
-    label="Available L2 (A)",
-    color="orange",
-    linewidth=1,
-    alpha=0.7,
-)
-ax1.plot(
-    df_log.index,
-    df_log[Phase.L3],
-    label="Available L3 (A)",
-    color="purple",
-    linewidth=1,
-    alpha=0.7,
-)
-ax1.plot(
-    df_log.index,
-    df_log["charger_limit"],
-    label="Charger Limit (A)",
-    color="blue",
-    linewidth=2,
-    alpha=0.7,
-)
+ax1.plot(df_log.index, df_log[Phase.L1], label="Available L1 (A)", color="green", linewidth=1, alpha=0.7)
+ax1.plot(df_log.index, df_log[Phase.L2], label="Available L2 (A)", color="orange", linewidth=1, alpha=0.7)
+ax1.plot(df_log.index, df_log[Phase.L3], label="Available L3 (A)", color="purple", linewidth=1, alpha=0.7)
+ax1.plot(df_log.index, df_log["Computed L1"], label="Computed L1 (A)", color="green", linewidth=1, alpha=0.5, linestyle="--")
+ax1.plot(df_log.index, df_log["Computed L2"], label="Computed L2 (A)", color="orange", linewidth=1, alpha=0.5, linestyle="--")
+ax1.plot(df_log.index, df_log["Computed L3"], label="Computed L3 (A)", color="purple", linewidth=1, alpha=0.5, linestyle="--")
+ax1.plot(df_log.index, df_log["charger_limit"], label="Charger Limit (A)", color="blue", linewidth=2, alpha=0.7)
 ax1.set_ylabel("Charger Limit (A)")
 ax1.set_xlabel("Time")
 ax1.grid(visible=True)
-
-# Indicate events when ramping occurs.
-for idx, row in df_log[df_log["event"].notna()].iterrows():
-    ax1.axvline(
-        x=idx,
-        color="green" if "increase" in row["event"] else "red",
-        linestyle="--",
-        alpha=0.6,
-    )
-
-fig.suptitle("Simulation of Charger Limits using OptimisedLoadBalancer")
+fig.suptitle("Simulation of Charger Limits using Coordinator Logic")
 ax1.legend(loc="upper left")
 plt.tight_layout()
 plt.show()

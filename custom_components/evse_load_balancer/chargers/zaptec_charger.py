@@ -120,6 +120,10 @@ class ZaptecCharger(HaDevice, Charger):
             Phase.L3: max_value,
         }
 
+    def has_synced_phase_limits(self) -> bool:
+        """Return whether the charger has synced phase limits."""
+        return True
+
     def _get_status(self) -> str | None:
         """Get the current status of the charger."""
         return self._get_entity_state_by_translation_key(ZaptecEntityMap.Status)
