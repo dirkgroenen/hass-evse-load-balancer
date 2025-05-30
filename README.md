@@ -77,9 +77,6 @@ This adaptive approach allows the EVSE Load Balancer to optimize charging power 
 ### HACS installation
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=dirkgroenen&repository=hass-evse-load-balancer)
 
-> **Note:** As this component is currently in beta, you'll need to add it as a custom repository in HACS first. Follow the instructions provided by [HACS on custom repositories](https://www.hacs.xyz/docs/faq/custom_repositories/). Use `dirkgroenen/hass-evse-load-balancer` as the repository URL and select "Integration" as the category.
-
-
 1. Search for "EVSE Load Balancer" in **HACS > Integrations**
 2. Download the integration and restart Home Assistant.
 3. Add the integration via **Settings > Devices & Services > Add Integration** and search for "EVSE Load Balancer."
