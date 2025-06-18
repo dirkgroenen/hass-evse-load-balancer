@@ -55,7 +55,7 @@ class HaDevice:
             )
         return entity.entity_id
 
-    def _get_entity_id_by_unique_id(self, entity_unique_id: str) -> float | None:
+    def _get_entity_id_by_unique_id(self, entity_unique_id: str) -> str | None:
         """Get the entity ID for a given unique ID."""
         entity: RegistryEntry | None = next(
             (e for e in self.entities if e.unique_id == entity_unique_id),
