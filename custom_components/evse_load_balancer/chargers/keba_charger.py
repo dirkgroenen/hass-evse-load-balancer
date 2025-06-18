@@ -93,11 +93,8 @@ class KebaCharger(HaDevice, Charger):
         )
         if state is None:
             _LOGGER.warning(
-                (
-                    "MaX Charger limit not available. ",
-                    "Make sure the required entity ",
-                    "({KebaEntityMap.MaxCurrent}) is enabled",
-                )
+                f"Max Charger limit not available. Make sure the required entity "
+                f"({KebaEntityMap.MaxCurrent}) is enabled."
             )
             return None
 
