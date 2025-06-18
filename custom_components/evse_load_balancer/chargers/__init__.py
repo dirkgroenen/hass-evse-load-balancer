@@ -9,6 +9,7 @@ from homeassistant.helpers import device_registry as dr
 from .amina_charger import AminaCharger
 from .charger import Charger
 from .easee_charger import EaseeCharger
+from .keba_charger import KebaCharger
 from .zaptec_charger import ZaptecCharger
 
 if TYPE_CHECKING:
@@ -26,7 +27,7 @@ async def charger_factory(
         msg = f"Device with ID {device_entry_id} not found in registry."
         raise ValueError(msg)
 
-    for charger_cls in [AminaCharger, EaseeCharger, ZaptecCharger]:
+    for charger_cls in [AminaCharger, EaseeCharger, ZaptecCharger, KebaCharger]:
         if charger_cls.is_charger_device(device):
             return charger_cls(hass, config_entry, device)
 
