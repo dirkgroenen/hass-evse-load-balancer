@@ -40,28 +40,28 @@ def homewizard_meter(mock_hass, mock_config_entry, mock_device_entry):
         config_entry=mock_config_entry,
         device_entry=mock_device_entry,
     )
-    meter._get_entity_id_by_translation_key = MagicMock()
+    meter._get_entity_id_by_key = MagicMock()
     meter._get_entity_state = MagicMock()
     meter.entities = []
     return meter
 
 
 def test_get_active_phase_power_consumption(homewizard_meter):
-    homewizard_meter._get_entity_id_by_translation_key.return_value = "sensor.active_power_l1"
+    homewizard_meter._get_entity_id_by_key.return_value = "sensor.active_power_l1_w"
     homewizard_meter._get_entity_state.return_value = 2300  # 2300W
     result = homewizard_meter.get_active_phase_power(Phase.L1)
     assert result == 2.3
 
 
 def test_get_active_phase_power_production(homewizard_meter):
-    homewizard_meter._get_entity_id_by_translation_key.return_value = "sensor.active_power_l1"
+    homewizard_meter._get_entity_id_by_key.return_value = "sensor.active_power_l1_w"
     homewizard_meter._get_entity_state.return_value = -1200  # -1200W
     result = homewizard_meter.get_active_phase_power(Phase.L1)
     assert result == -1.2
 
 
 def test_get_active_phase_power_none(homewizard_meter):
-    homewizard_meter._get_entity_id_by_translation_key.return_value = "sensor.active_power_l1"
+    homewizard_meter._get_entity_id_by_key.return_value = "sensor.active_power_l1_w"
     homewizard_meter._get_entity_state.return_value = None
     result = homewizard_meter.get_active_phase_power(Phase.L1)
     assert result is None
@@ -90,17 +90,18 @@ def test_get_active_phase_current_missing_power(homewizard_meter):
 
 def test_get_tracking_entities(homewizard_meter):
     class Entity:
-        def __init__(self, entity_id, translation_key):
+        def __init__(self, entity_id, key):
             self.entity_id = entity_id
-            self.translation_key = translation_key
+            self.unique_id = f"homewizard_{key}"
+            self.key = key
     homewizard_meter.entities = [
-        Entity("sensor.active_power_l1", "active_power_l1"),
-        Entity("sensor.voltage_l1", "voltage_l1"),
+        Entity("sensor.active_power_l1_w", "active_power_l1_w"),
+        Entity("sensor.active_voltage_l1_v", "active_voltage_l1_v"),
         Entity("sensor.other", "other"),
     ]
     result = homewizard_meter.get_tracking_entities()
-    assert "sensor.active_power_l1" in result
-    assert "sensor.voltage_l1" in result
+    assert "sensor.active_power_l1_w" in result
+    assert "sensor.active_voltage_l1_v" in result
     assert "sensor.other" not in result
 
 

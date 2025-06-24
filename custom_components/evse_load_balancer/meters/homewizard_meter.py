@@ -15,20 +15,20 @@ from .meter import Meter, Phase
 
 _LOGGER = logging.getLogger(__name__)
 
-# Mapping entities from the HomeWizard component based on their translation key
+# Mapping entities from the HomeWizard component based on their key
 # @https://github.com/home-assistant/core/blob/dev/homeassistant/components/homewizard/sensor.py
 HOMEWIZARD_ENTITY_MAP: dict[str, dict[str, str]] = {
     cf.CONF_PHASE_KEY_ONE: {
-        cf.CONF_PHASE_SENSOR: "active_power_l1",
-        cf.CONF_PHASE_SENSOR_VOLTAGE: "voltage_l1",
+        cf.CONF_PHASE_SENSOR: "active_power_l1_w",
+        cf.CONF_PHASE_SENSOR_VOLTAGE: "active_voltage_l1_v",
     },
     cf.CONF_PHASE_KEY_TWO: {
-        cf.CONF_PHASE_SENSOR: "active_power_l2",
-        cf.CONF_PHASE_SENSOR_VOLTAGE: "voltage_l2",
+        cf.CONF_PHASE_SENSOR: "active_power_l2_w",
+        cf.CONF_PHASE_SENSOR_VOLTAGE: "active_voltage_l2_v",
     },
     cf.CONF_PHASE_KEY_THREE: {
-        cf.CONF_PHASE_SENSOR: "active_power_l3",
-        cf.CONF_PHASE_SENSOR_VOLTAGE: "voltage_l3",
+        cf.CONF_PHASE_SENSOR: "active_power_l3_w",
+        cf.CONF_PHASE_SENSOR_VOLTAGE: "active_voltage_l3_v",
     },
 }
 
@@ -84,27 +84,29 @@ class HomeWizardMeter(Meter, HaDevice):
 
     def get_tracking_entities(self) -> list[str]:
         """Return a list of entity IDs that should be tracked for this meter."""
-        translation_keys = [
+        keys = [
             entity
             for phase in HOMEWIZARD_ENTITY_MAP.values()
             for entity in phase.values()
         ]
         return [
-            e.entity_id for e in self.entities if e.translation_key in translation_keys
+            e.entity_id
+            for e in self.entities
+            if any(e.unique_id.endswith(f"_{key}") for key in keys)
         ]
 
     def _get_entity_id_for_phase_sensor(
         self, phase: Phase, sensor_const: str
     ) -> float | None:
-        """Get the entity_id for a given phase and translation key."""
-        return self._get_entity_id_by_translation_key(
+        """Get the entity_id for a given phase and key."""
+        return self._get_entity_id_by_key(
             self._get_entity_map_for_phase(phase)[sensor_const]
         )
 
     def _get_entity_state_for_phase_sensor(
         self, phase: Phase, sensor_const: str
     ) -> float | None:
-        """Get the state of the entity for a given phase and translation key."""
+        """Get the state of the entity for a given phase and key."""
         entity_id = self._get_entity_id_for_phase_sensor(phase, sensor_const)
         return self._get_entity_state(entity_id, float)
 
