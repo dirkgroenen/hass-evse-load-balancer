@@ -104,10 +104,11 @@ class EVSELoadBalancerCoordinator:
             identifiers={(DOMAIN, self.config_entry.entry_id)}
         )
         if device is None:
-            _LOGGER.warning(
+            msg = (
                 "Device entry for EVSE Load Balancer not found. "
                 "This should not happen, please report this issue."
             )
+            raise RuntimeError(msg)
         return device
 
     async def _handle_options_update(
