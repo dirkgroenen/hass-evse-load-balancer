@@ -52,6 +52,7 @@
 - Easee Chargers (via [nordicopen/easee_hass](https://github.com/nordicopen/easee_hass))
 - Zaptec Chargers (via [custom-components/zaptec](https://github.com/custom-components/zaptec))
 - Amina S Chargers (via [Zigbee2MQTT/amina_S](https://www.zigbee2mqtt.io/devices/amina_S.html))
+- Lektrico Chargers (via [lektrico](https://www.home-assistant.io/integrations/lektrico/))
 - ... additional chargers to be added ...
 
 ## How It Works
