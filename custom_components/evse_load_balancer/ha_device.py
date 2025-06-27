@@ -38,7 +38,7 @@ class HaDevice:
             include_disabled_entities=True,
         )
 
-    def _get_entity_id_by_translation_key(self, entity_translation_key: str) -> float:
+    def _get_entity_id_by_translation_key(self, entity_translation_key: str) -> str:
         """Get the entity ID for a given translation key."""
         entity: RegistryEntry | None = next(
             (e for e in self.entities if e.translation_key == entity_translation_key),
@@ -53,7 +53,7 @@ class HaDevice:
             )
         return entity.entity_id
 
-    def _get_entity_id_by_key(self, entity_key: str) -> float:
+    def _get_entity_id_by_key(self, entity_key: str) -> str:
         """
         Get the entity ID for a given key.
 
