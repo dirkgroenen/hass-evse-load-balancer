@@ -29,7 +29,7 @@
 ## Features
 
 - **Dynamic Load Balancing**: Automatically adjusts the charging current of your EV charger based on the available power in your home.
-- **Broad Meter Support**: Works with DSMR-compatible meters or allows manual configuration based on existing entities for advanced setups.
+- **Broad Meter Support**: Works with several meters like DSMR or HomeWizard, and allows manual configuration based on existing entities for advanced setups.
 - **Flexible Charger Integration**: Compatible with a range of EV chargers, such as Easee, Zaptec, Amina, ....
 
 ### Roadmap
@@ -45,6 +45,7 @@
 
 ### Energy Meters
 - DSMR-compatible meters (via [DSMR Smart Meter](https://www.home-assistant.io/integrations/dsmr/))
+- HomeWizard meters (via [HomeWizard](https://www.home-assistant.io/integrations/homewizard/))
 - Custom configurations using existing Home Assistant sensors (1-3 Phase support)
 
 ### EV Chargers
