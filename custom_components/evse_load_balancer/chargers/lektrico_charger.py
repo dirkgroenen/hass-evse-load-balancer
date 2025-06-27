@@ -1,4 +1,4 @@
-"""Easee Charger implementation."""
+"""Lektri.co Charger implementation."""
 
 import logging
 
@@ -163,4 +163,4 @@ class LektricoCharger(HaDevice, Charger):
         ]
 
     async def async_unload(self) -> None:
-        """Unload the Easee charger."""
+        """Unload the Lektri.co charger."""
