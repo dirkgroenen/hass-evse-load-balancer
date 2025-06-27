@@ -25,6 +25,7 @@ from packaging.version import parse as parse_version
 
 from .const import (
     CHARGER_DOMAIN_EASEE,
+    CHARGER_DOMAIN_LEKTRICO,
     CHARGER_DOMAIN_ZAPTEC,
     CHARGER_MANUFACTURER_AMINA,
     DOMAIN,
@@ -57,6 +58,9 @@ if CHARGER_DOMAIN_EASEE in SUPPORTED_CHARGER_DEVICE_DOMAINS:
 
 if CHARGER_DOMAIN_ZAPTEC in SUPPORTED_CHARGER_DEVICE_DOMAINS:
     _charger_device_filter_list.append({"integration": CHARGER_DOMAIN_ZAPTEC})
+
+if CHARGER_DOMAIN_LEKTRICO in SUPPORTED_CHARGER_DEVICE_DOMAINS:
+    _charger_device_filter_list.append({"integration": CHARGER_DOMAIN_LEKTRICO})
 
 if HA_INTEGRATION_DOMAIN_MQTT in SUPPORTED_CHARGER_DEVICE_DOMAINS:
     _charger_device_filter_list.append(
