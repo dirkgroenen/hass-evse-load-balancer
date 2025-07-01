@@ -30,14 +30,14 @@ class ZaptecStatusMap:
     """
     Map of Zaptec charger statuses.
 
-    See https://github.com/custom-components/zaptec/blob/master/custom_components/zaptec/sensor.py#L43
+    See https://github.com/custom-components/zaptec/blob/master/custom_components/zaptec/sensor.py#L43-L49
     """
 
     Unknown = "Unknown"
     Disconnected = "Disconnected"
-    ConnectedRequesting = "Connected_Requesting"
-    ConnectedCharging = "Connected_Charging"
-    ConnectedFinished = "Connected_Finished"
+    ConnectedRequesting = "Waiting"
+    ConnectedCharging = "Charging"
+    ConnectedFinished = "Charge done"
 
 
 class ZaptecCharger(HaDevice, Charger):
