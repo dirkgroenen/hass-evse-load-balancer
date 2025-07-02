@@ -92,8 +92,7 @@ class ZaptecCharger(HaDevice, Charger):
         )
 
         try:
-            # Zaptec returns the same value for all phases
-            current_value = int(entity_state)
+            current_value = int(float(entity_state))
             return dict.fromkeys(Phase, current_value)
         except (ValueError, TypeError):
             _LOGGER.exception(

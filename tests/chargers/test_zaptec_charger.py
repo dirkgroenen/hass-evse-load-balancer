@@ -90,7 +90,7 @@ async def test_set_current_limit(zaptec_charger, mock_hass):
 def test_get_current_limit_success(zaptec_charger):
     """Test retrieving the current limit when entity exists."""
     # Mock the entity state
-    zaptec_charger._get_entity_state_by_translation_key.return_value = "16"
+    zaptec_charger._get_entity_state_by_translation_key.return_value = "16.0"
 
     # Call the method
     result = zaptec_charger.get_current_limit()
