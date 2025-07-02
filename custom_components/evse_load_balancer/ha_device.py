@@ -70,6 +70,26 @@ class HaDevice:
             )
         return entity.entity_id
 
+    def _get_entity_id_by_key(self, entity_key: str) -> float | None:
+        """
+        Get the entity ID for a given key.
+
+        Looks up the entity by checking all entities associated with the device
+        whose unique_id end with the provided key.
+        """
+        entity: RegistryEntry | None = next(
+            (e for e in self.entities if e.unique_id.endswith(f"_{entity_key}")),
+            None,
+        )
+        if entity is None:
+            msg = f"Entity with unique_id ending with '{entity_key}' not found"
+            raise ValueError(msg)
+        if entity.disabled:
+            _LOGGER.error(
+                "Required entity %s is disabled. Please enable it!", entity.entity_id
+            )
+        return entity.entity_id
+
     def _get_entity_state(
         self, entity_id: str, parser_fn: Callable | None = None
     ) -> Any | None:
@@ -121,4 +141,16 @@ class HaDevice:
     ) -> dict | None:
         """Get the state attributes for the entity for a given unique ID."""
         entity_id = self._get_entity_id_by_unique_id(entity_unique_id)
+        return self._get_entity_state_attrs(entity_id)
+
+    def _get_entity_state_by_key(
+        self, entity_key: str, parser_fn: Callable | None = None
+    ) -> Any | None:
+        """Get the state of the entity for a given entity key."""
+        entity_id = self._get_entity_id_by_key(entity_key)
+        return self._get_entity_state(entity_id, parser_fn)
+
+    def _get_entity_state_attrs_by_key(self, entity_key: str) -> dict | None:
+        """Get the state attributes for the entity for a given entity key."""
+        entity_id = self._get_entity_id_by_key(entity_key)
         return self._get_entity_state_attrs(entity_id)

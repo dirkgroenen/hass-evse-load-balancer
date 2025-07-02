@@ -5,7 +5,6 @@ from datetime import datetime, timedelta  # Ensure datetime is imported
 from functools import cached_property
 from math import floor
 from time import time
-from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -29,9 +28,6 @@ from .const import (
 )
 from .meters.meter import Meter, Phase
 from .power_allocator import PowerAllocator
-
-if TYPE_CHECKING:
-    from homeassistant.helpers.device_registry import DeviceEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,11 +63,6 @@ class EVSELoadBalancerCoordinator:
         self._meter: Meter = meter
         self._charger: Charger = charger
 
-        device_registry = dr.async_get(self.hass)
-        self._device: DeviceEntry = device_registry.async_get_device(
-            identifiers={(DOMAIN, self.config_entry.entry_id)}
-        )
-
         self._previous_current_availability: dict[Phase, int] | None = None
 
     async def async_setup(self) -> None:
@@ -104,6 +95,21 @@ class EVSELoadBalancerCoordinator:
         for unsub_method in self._unsub:
             unsub_method()
         self._unsub.clear()
+
+    @cached_property
+    def _device(self) -> dr.DeviceEntry:
+        """Get the device entry for the coordinator."""
+        device_registry = dr.async_get(self.hass)
+        device = device_registry.async_get_device(
+            identifiers={(DOMAIN, self.config_entry.entry_id)}
+        )
+        if device is None:
+            msg = (
+                "Device entry for EVSE Load Balancer not found. "
+                "This should not happen, please report this issue."
+            )
+            raise RuntimeError(msg)
+        return device
 
     async def _handle_options_update(
         self,
