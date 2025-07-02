@@ -227,7 +227,6 @@ def test_can_charge_true(zaptec_charger):
     """Test can_charge returns True for valid statuses when car is connected."""
     for status in [
         ZaptecStatusMap.ConnectedCharging,
-        ZaptecStatusMap.ConnectedFinished,
     ]:
         # Reset the mock
         zaptec_charger._get_entity_state_by_translation_key.reset_mock()

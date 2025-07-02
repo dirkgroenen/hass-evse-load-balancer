@@ -134,15 +134,12 @@ class ZaptecCharger(HaDevice, Charger):
 
     def _get_status(self) -> str | None:
         """Get the current status of the charger."""
-        status = self._get_entity_state_by_translation_key(ZaptecEntityMap.Status)
-        _LOGGER.debug("Zaptec charger status: %s", status)
-        return status
+        return self._get_entity_state_by_translation_key(ZaptecEntityMap.Status)
 
     def car_connected(self) -> bool:
         """Check if a car is connected to the charger."""
         # Fall back to status-based detection
         status = self._get_status()
-        _LOGGER.debug("Zaptec charger status: %s", status)
         return status in (
             ZaptecStatusMap.ConnectedRequesting,
             ZaptecStatusMap.ConnectedCharging,
@@ -157,10 +154,7 @@ class ZaptecCharger(HaDevice, Charger):
 
         # Then check status to see if it's in a state where charging is possible
         status = self._get_status()
-        return status in (
-            ZaptecStatusMap.ConnectedCharging,
-            ZaptecStatusMap.ConnectedFinished,
-        )
+        return status in (ZaptecStatusMap.ConnectedCharging,)
 
     async def async_unload(self) -> None:
         """Unload the charger."""
