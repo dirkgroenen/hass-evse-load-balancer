@@ -29,6 +29,7 @@ from .const import (
     CHARGER_MANUFACTURER_AMINA,
     DOMAIN,
     HA_INTEGRATION_DOMAIN_MQTT,
+    METER_MANUFACTURER_AMSLESER,
     SUPPORTED_CHARGER_DEVICE_DOMAINS,
     SUPPORTED_METER_DEVICE_DOMAINS,
 )
@@ -66,6 +67,18 @@ if HA_INTEGRATION_DOMAIN_MQTT in SUPPORTED_CHARGER_DEVICE_DOMAINS:
         }
     )
 
+_meter_device_filter_list: list[dict[str, str]] = [
+    {"integration": domain} for domain in SUPPORTED_METER_DEVICE_DOMAINS
+]
+
+_meter_device_filter_list.append(
+    {
+        "integration": HA_INTEGRATION_DOMAIN_MQTT,
+        "manufacturer": METER_MANUFACTURER_AMSLESER
+    }
+)
+
+
 STEP_INIT_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_CHARGER_DEVICE): DeviceSelector(
@@ -83,9 +96,7 @@ STEP_INIT_SCHEMA = vol.Schema(
         vol.Optional(CONF_METER_DEVICE): DeviceSelector(
             DeviceSelectorConfig(
                 multiple=False,
-                filter=[
-                    {"integration": domain} for domain in SUPPORTED_METER_DEVICE_DOMAINS
-                ],
+                filter=_meter_device_filter_list,
             )
         ),
         vol.Optional(CONF_CUSTOM_PHASE_CONFIG): cv.boolean,
