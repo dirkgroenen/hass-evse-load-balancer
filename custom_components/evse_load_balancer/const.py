@@ -6,6 +6,7 @@ DOMAIN = "evse_load_balancer"
 
 CHARGER_DOMAIN_EASEE = "easee"
 CHARGER_DOMAIN_ZAPTEC = "zaptec"
+CHARGER_DOMAIN_LEKTRICO = "lektrico"
 CHARGER_DOMAIN_KEBA = "keba"
 
 HA_INTEGRATION_DOMAIN_MQTT = "mqtt"
