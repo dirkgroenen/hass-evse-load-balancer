@@ -282,7 +282,7 @@ class EVSELoadBalancerCoordinator:
 
         _LOGGER.debug(
             "Charger settings was updated too recently. "
-            "Last update: %s, current time: %s"
+            "Last update: %s, current time: %s. "
             "Configured delay: %s minutes",
             last_update_time,
             int(time()),

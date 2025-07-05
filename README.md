@@ -53,6 +53,7 @@
 - Zaptec Chargers (via [custom-components/zaptec](https://github.com/custom-components/zaptec))
 - Amina S Chargers (via [Zigbee2MQTT/amina_S](https://www.zigbee2mqtt.io/devices/amina_S.html))
 - Lektrico Chargers (via [lektrico](https://www.home-assistant.io/integrations/lektrico/))
+- Keba Charging Station (BMW Wallbox) (via [keba](https://www.home-assistant.io/integrations/keba/))
 - ... additional chargers to be added ...
 
 ## How It Works

@@ -30,14 +30,14 @@ class ZaptecStatusMap:
     """
     Map of Zaptec charger statuses.
 
-    See https://github.com/custom-components/zaptec/blob/master/custom_components/zaptec/sensor.py#L43
+    See https://github.com/custom-components/zaptec/blob/master/custom_components/zaptec/sensor.py#L43-L49
     """
 
     Unknown = "Unknown"
     Disconnected = "Disconnected"
-    ConnectedRequesting = "Connected_Requesting"
-    ConnectedCharging = "Connected_Charging"
-    ConnectedFinished = "Connected_Finished"
+    ConnectedRequesting = "Waiting"
+    ConnectedCharging = "Charging"
+    ConnectedFinished = "Charge done"
 
 
 class ZaptecCharger(HaDevice, Charger):
@@ -92,8 +92,7 @@ class ZaptecCharger(HaDevice, Charger):
         )
 
         try:
-            # Zaptec returns the same value for all phases
-            current_value = int(entity_state)
+            current_value = int(float(entity_state))
             return dict.fromkeys(Phase, current_value)
         except (ValueError, TypeError):
             _LOGGER.exception(
@@ -155,10 +154,7 @@ class ZaptecCharger(HaDevice, Charger):
 
         # Then check status to see if it's in a state where charging is possible
         status = self._get_status()
-        return status in (
-            ZaptecStatusMap.ConnectedCharging,
-            ZaptecStatusMap.ConnectedFinished,
-        )
+        return status in (ZaptecStatusMap.ConnectedCharging,)
 
     async def async_unload(self) -> None:
         """Unload the charger."""

@@ -33,6 +33,7 @@ class ChargerState:
         if current_limits:
             self.requested_current = dict(current_limits)
             self.last_applied_current = dict(current_limits)
+            self._active_session = self.charger.can_charge()
             _LOGGER.info("Charger initialized with limits: %s", current_limits)
             self.initialized = True
             return True
@@ -230,14 +231,28 @@ class PowerAllocator:
                 # Recovery situation - distribute increases proportionally
                 self._distribute_increases(phase, available_current, result)
 
+        # Grab phases that should be processed
+        processed_phases = set(available_currents.keys())
+
         # Flatten synced chargers which expect the current to be equal
         # across all phases
         for charger_id, charger_currents in result.items():
             state = self._active_chargers[charger_id]
             if state.charger.has_synced_phase_limits():
-                # Set all phases to the minimum of the new current setting
-                min_current = min(charger_currents.values())
-                result[charger_id] = dict.fromkeys(result[charger_id], min_current)
+                # For synced chargers, use the minimum of the updated phases,
+                # but only consider phases that were actually processed
+                processed_currents = {
+                    phase: current
+                    for phase, current in charger_currents.items()
+                    if phase in processed_phases
+                }
+
+                if processed_currents:
+                    min_current = min(processed_currents.values())
+                    result[charger_id] = dict.fromkeys(Phase, min_current)
+                else:
+                    # If no phases were processed, keep the original values
+                    pass
 
         return result
 

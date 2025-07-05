@@ -25,12 +25,12 @@ from packaging.version import parse as parse_version
 
 from .const import (
     CHARGER_DOMAIN_EASEE,
+    CHARGER_DOMAIN_KEBA,
     CHARGER_DOMAIN_LEKTRICO,
     CHARGER_DOMAIN_ZAPTEC,
     CHARGER_MANUFACTURER_AMINA,
     DOMAIN,
     HA_INTEGRATION_DOMAIN_MQTT,
-    SUPPORTED_CHARGER_DEVICE_DOMAINS,
     SUPPORTED_METER_DEVICE_DOMAINS,
 )
 from .exceptions.validation_exception import ValidationExceptionError
@@ -51,24 +51,16 @@ CONF_CUSTOM_PHASE_CONFIG = "custom_phase_config"
 CONF_METER_DEVICE = "meter_device"
 CONF_CHARGER_DEVICE = "charger_device"
 
-_charger_device_filter_list: list[dict[str, str]] = []
-
-if CHARGER_DOMAIN_EASEE in SUPPORTED_CHARGER_DEVICE_DOMAINS:
-    _charger_device_filter_list.append({"integration": CHARGER_DOMAIN_EASEE})
-
-if CHARGER_DOMAIN_ZAPTEC in SUPPORTED_CHARGER_DEVICE_DOMAINS:
-    _charger_device_filter_list.append({"integration": CHARGER_DOMAIN_ZAPTEC})
-
-if CHARGER_DOMAIN_LEKTRICO in SUPPORTED_CHARGER_DEVICE_DOMAINS:
-    _charger_device_filter_list.append({"integration": CHARGER_DOMAIN_LEKTRICO})
-
-if HA_INTEGRATION_DOMAIN_MQTT in SUPPORTED_CHARGER_DEVICE_DOMAINS:
-    _charger_device_filter_list.append(
-        {
-            "integration": HA_INTEGRATION_DOMAIN_MQTT,
-            "manufacturer": CHARGER_MANUFACTURER_AMINA,
-        }
-    )
+_charger_device_filter_list: list[dict[str, str]] = [
+    {"integration": CHARGER_DOMAIN_EASEE},
+    {"integration": CHARGER_DOMAIN_ZAPTEC},
+    {"integration": CHARGER_DOMAIN_KEBA},
+    {"integration": CHARGER_DOMAIN_LEKTRICO},
+    {
+        "integration": HA_INTEGRATION_DOMAIN_MQTT,
+        "manufacturer": CHARGER_MANUFACTURER_AMINA,
+    },
+]
 
 STEP_INIT_SCHEMA = vol.Schema(
     {
