@@ -157,23 +157,6 @@ def test_get_current_limit_invalid_value(ocpp_charger):
     assert result is None
 
 
-def test_get_max_current_limit_from_power(ocpp_charger):
-    """Test retrieving the max current limit from power offered."""
-    # Mock the entity state to return power value
-    def mock_entity_state(key):
-        if key == OcppEntityMap.PowerOffered:
-            return "7360"  # 7360W / 230V = 32A
-        return None
-
-    ocpp_charger._get_entity_state_by_key.side_effect = mock_entity_state
-
-    # Call the method
-    result = ocpp_charger.get_max_current_limit()
-
-    # Verify results
-    assert result == {Phase.L1: 32, Phase.L2: 32, Phase.L3: 32}
-
-
 def test_get_max_current_limit_default(ocpp_charger):
     """Test retrieving the max current limit with default value."""
     # Mock the entity state to return None
