@@ -153,9 +153,18 @@ class OcppCharger(HaDevice, Charger):
     def _get_status(self) -> str | None:
         """Get the current status of the OCPP charger."""
         # Try connector status first, then general status
-        status = self._get_entity_state_by_key(
-            OcppEntityMap.StatusConnector,
-        )
+        status = None
+
+        try:
+            status = self._get_entity_state_by_key(
+                OcppEntityMap.StatusConnector,
+            )
+        except ValueError as e:
+            _LOGGER.debug(
+                "Failed to get status for OCPP charger by entity '%s': '%s'",
+                OcppEntityMap.StatusConnector,
+                e,
+            )
 
         if status is None:
             status = self._get_entity_state_by_key(

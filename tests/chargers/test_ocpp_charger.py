@@ -276,7 +276,7 @@ def test_status_fallback(ocpp_charger):
     # Mock connector status as None, general status as Available
     def mock_entity_state(key):
         if key == OcppEntityMap.StatusConnector:
-            return None
+            raise ValueError("Connector status not available")
         elif key == OcppEntityMap.Status:
             return OcppStatusMap.Available
         return None
