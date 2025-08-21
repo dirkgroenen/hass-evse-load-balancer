@@ -177,11 +177,12 @@ class EVSELoadBalancerCoordinator:
         else:
             # On valid reading, clear grace period timer if any
             if phase in self._missing_data_start:
-                _LOGGER.info(f"Active current restored for phase '{phase.value}', clearing grace period.")
+                _LOGGER.info(
+                    f"Active current restored for phase '{phase.value}', clearing grace period."
+                )
                 del self._missing_data_start[phase]
 
             return min(self.fuse_size, floor(self.fuse_size - active_current))
-
 
     def _get_available_currents(self) -> dict[Phase, int] | None:
         """Check all phases and return the available current for each."""
