@@ -46,8 +46,6 @@ class EVSELoadBalancerCoordinator:
     # MODIFIED: Store as datetime object or None
     _last_check_timestamp: datetime | None = None
     _last_charger_target_update: tuple[dict[Phase, int], int] | None = None
-    _missing_data_start: dict[Phase, datetime] = {}
-    _grace_period = timedelta(seconds=60)  # Adjust grace period as needed
 
     def __init__(
         self,
@@ -66,6 +64,9 @@ class EVSELoadBalancerCoordinator:
         self._charger: Charger = charger
 
         self._previous_current_availability: dict[Phase, int] | None = None
+
+        self._missing_data_start: dict[Phase, datetime] = {}
+        self._grace_period = timedelta(seconds=60)  # Adjust grace period as needed
 
     async def async_setup(self) -> None:
         """Set up the coordinator and its managed components."""
@@ -151,38 +152,44 @@ class EVSELoadBalancerCoordinator:
     def get_available_current_for_phase(self, phase: Phase) -> int | None:
         """Get the available current for a given phase."""
         active_current = self._meter.get_active_phase_current(phase)
-        now = datetime.now()
+        now = datetime.now(tz=datetime.timezone.utc)
 
         if active_current is None:
             # Start grace period timer if not already started
             if phase not in self._missing_data_start:
                 self._missing_data_start[phase] = now
                 _LOGGER.debug(
-                    f"Active current missing for phase '{phase.value}'. Starting grace period fallback."
+                    "Active current missing for phase '%s'. "
+                    "Starting grace period fallback.",
+                    phase.value,
                 )
 
             elapsed = now - self._missing_data_start[phase]
             if elapsed <= self._grace_period:
                 # During grace period, fallback to zero
                 _LOGGER.debug(
-                    f"Within grace period ({elapsed.seconds}s) for phase '{phase.value}', using fallback 0."
+                    "Within grace period (%s s) for phase '%s', using fallback 0.",
+                    elapsed.seconds,
+                    phase.value,
                 )
                 return 0
-            else:
-                # After grace period, abort and log error
-                _LOGGER.debug(
-                    f"Active current missing for phase '{phase.value}' beyond grace period ({elapsed.seconds}s). Aborting."
-                )
-                return None
-        else:
-            # On valid reading, clear grace period timer if any
-            if phase in self._missing_data_start:
-                _LOGGER.info(
-                    f"Active current restored for phase '{phase.value}', clearing grace period."
-                )
-                del self._missing_data_start[phase]
+            # After grace period, abort and log error
+            _LOGGER.debug(
+                "Active current missing for phase '%s' beyond grace period (%s s). "
+                "Aborting.",
+                phase.value,
+                elapsed.seconds,
+            )
+            return None
+        # On valid reading, clear grace period timer if any
+        if phase in self._missing_data_start:
+            _LOGGER.info(
+                "Active current restored for phase '%s', clearing grace period.",
+                phase.value,
+            )
+            del self._missing_data_start[phase]
 
-            return min(self.fuse_size, floor(self.fuse_size - active_current))
+        return min(self.fuse_size, floor(self.fuse_size - active_current))
 
     def _get_available_currents(self) -> dict[Phase, int] | None:
         """Check all phases and return the available current for each."""

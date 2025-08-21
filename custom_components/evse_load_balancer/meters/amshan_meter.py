@@ -6,10 +6,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntry
 
-from .. import config_flow as cf
-from .. import options_flow as of
-from ..ha_device import HaDevice
-from .meter import Meter, Phase
+from custom_components.evse_load_balancer import config_flow as cf
+from custom_components.evse_load_balancer.ha_device import HaDevice
+from custom_components.evse_load_balancer.meters.meter import Meter, Phase
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,7 +61,7 @@ class AmshanMeter(Meter, HaDevice):
 
                 for map_value in map_values:
                     if entity_id_no_domain.endswith(map_value):
-                        # Remove the map_value from the end to get the prefix (may include underscores)
+                        # Remove the map_value from the end to get the prefix
                         prefix = entity_id_no_domain[: -len(map_value)]
                         self._entity_prefix = prefix
                         _LOGGER.debug(
@@ -72,13 +71,15 @@ class AmshanMeter(Meter, HaDevice):
                 if self._entity_prefix:
                     break
         if not self._entity_prefix:
-            raise RuntimeError("Could not determine AMSHAN entity prefix.")
+            msg = "Could not determine AMSHAN entity prefix."
+            raise RuntimeError(msg)
 
     def _get_entity_id_by_translation_key(self, entity_translation_key: str) -> str:
         """Build entity_id using detected prefix and translation key."""
         entity_id = f"sensor.{self._entity_prefix}{entity_translation_key}"
         if not any(e.entity_id == entity_id for e in self.entities):
-            raise ValueError(f"Entity {entity_id} not found for AMSHAN meter.")
+            msg = ("Entity %s not found for AMSHAN meter. ", entity_id)
+            raise ValueError(msg)
         return entity_id
 
     def get_active_phase_current(self, phase: Phase) -> int | None:
@@ -102,10 +103,12 @@ class AmshanMeter(Meter, HaDevice):
         return round(raw_value)
 
     def get_active_phase_power(self, phase: Phase) -> float | None:
-        """Return active power on the requested phase (watts) or None.
+        """
+        Return active power on the requested phase (watts) or None.
 
         Priority:
-        1) If AMSHAN provides per-phase consumption/production => compute net (cons - prod)
+        1) If AMSHAN provides per-phase consumption/production then
+        compute net (cons - prod)
         2) Else if voltage + current sensors present => P = V * I
         3) Else None
 
@@ -113,7 +116,6 @@ class AmshanMeter(Meter, HaDevice):
         so we can approximate per phase power by:
         P_phase = (Voltage_phase * Current_phase) if both exist
         """
-
         # 1) Try dedicated power sensors (consumption/production)
         consumption_state = self._get_entity_state_for_phase_sensor(
             phase, cf.CONF_PHASE_SENSOR_CONSUMPTION
@@ -122,7 +124,7 @@ class AmshanMeter(Meter, HaDevice):
             phase, cf.CONF_PHASE_SENSOR_PRODUCTION
         )
 
-        if not None in [consumption_state, production_state]:
+        if None not in [consumption_state, production_state]:
             return consumption_state - production_state
 
         _LOGGER.warning(
@@ -141,8 +143,9 @@ class AmshanMeter(Meter, HaDevice):
 
         # 3) No per-phase power possible
         _LOGGER.warning(
-            f"Cannot determine active power for phase {phase.value}. "
-            "No consumption/production sensors or voltage/current sensors available."
+            "Cannot determine active power for phase %s. "
+            "No consumption/production sensors or voltage/current sensors available.",
+            phase.value,
         )
         return None
 
