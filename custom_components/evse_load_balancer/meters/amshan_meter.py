@@ -41,7 +41,8 @@ class AmshanMeter(Meter, HaDevice):
     """AMS HAN Meter implementation of the Meter class."""
 
     def __init__(
-            self, hass: HomeAssistant, config_entry: ConfigEntry, device_entry: DeviceEntry) -> None:
+        self, hass: HomeAssistant, config_entry: ConfigEntry, device_entry: DeviceEntry
+    ) -> None:
         """Initialize the Meter instance."""
         Meter.__init__(self, hass, config_entry)
         HaDevice.__init__(self, hass, device_entry)
@@ -50,23 +51,29 @@ class AmshanMeter(Meter, HaDevice):
 
         # Find a valid sensor entity and extract the prefix
         self._entity_prefix = None
-        map_values = {v for phase_map in ENTITY_REGISTRATION_MAP.values() for v in phase_map.values()}
+        map_values = {
+            v
+            for phase_map in ENTITY_REGISTRATION_MAP.values()
+            for v in phase_map.values()
+        }
         for e in self.entities:
             if e.entity_id.startswith("sensor."):
-                entity_id_no_domain = e.entity_id[len("sensor."):]
+                entity_id_no_domain = e.entity_id[len("sensor.") :]
 
                 for map_value in map_values:
                     if entity_id_no_domain.endswith(map_value):
                         # Remove the map_value from the end to get the prefix (may include underscores)
                         prefix = entity_id_no_domain[: -len(map_value)]
                         self._entity_prefix = prefix
-                        _LOGGER.debug("Detected AMSHAN entity prefix: '%s'", self._entity_prefix)
+                        _LOGGER.debug(
+                            "Detected AMSHAN entity prefix: '%s'", self._entity_prefix
+                        )
                         break
                 if self._entity_prefix:
                     break
         if not self._entity_prefix:
             raise RuntimeError("Could not determine AMSHAN entity prefix.")
-        
+
     def _get_entity_id_by_translation_key(self, entity_translation_key: str) -> str:
         """Build entity_id using detected prefix and translation key."""
         entity_id = f"sensor.{self._entity_prefix}{entity_translation_key}"
@@ -87,7 +94,7 @@ class AmshanMeter(Meter, HaDevice):
                     "Is the entitiy enabled?",
                 ),
                 phase.value,
-                current_state
+                current_state,
             )
             return None
         # convert to int
@@ -117,7 +124,7 @@ class AmshanMeter(Meter, HaDevice):
 
         if not None in [consumption_state, production_state]:
             return consumption_state - production_state
-            
+
         _LOGGER.warning(
             "Missing states for one of phase %s: consumption: %s, production: %s",
             phase,
@@ -125,15 +132,10 @@ class AmshanMeter(Meter, HaDevice):
             production_state,
         )
 
-
         # 2) Fallback: phase voltage * phase current
-        v = self._get_entity_state_for_phase_sensor(
-                    phase, cf.CONF_PHASE_SENSOR_VOLTAGE
-                )
-        i = self._get_entity_state_for_phase_sensor(
-                    phase, cf.CONF_PHASE_SENSOR_CURRENT
-                )
-        
+        v = self._get_entity_state_for_phase_sensor(phase, cf.CONF_PHASE_SENSOR_VOLTAGE)
+        i = self._get_entity_state_for_phase_sensor(phase, cf.CONF_PHASE_SENSOR_CURRENT)
+
         if v is not None and i is not None:
             return v * i
 
