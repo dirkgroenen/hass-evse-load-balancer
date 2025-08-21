@@ -21,6 +21,7 @@ ZAPTEC_SERVICE_LIMIT_CURRENT = "limit_current"
 class ZaptecEntityMap:
     """Map of Zaptec entity translation keys."""
 
+    Charger = "charger"
     ChargingCurrent = "charger_max_current"
     MaxChargingCurrent = "available_current"
     Status = "charger_operation_mode"
@@ -76,14 +77,19 @@ class ZaptecCharger(HaDevice, Charger):
         state = self.hass.states.get(entity_id)
         if not state or "installation_id" not in state.attributes:
             _LOGGER.exception(
-            "installation_id not found in attributes for entity %s", entity_id
+                "installation_id not found in attributes for entity %s", entity_id
             )
         installation_id = state.attributes["installation_id"]
 
         _LOGGER.debug("Setting current limit to %s A", min(limit.values()))
-        _LOGGER.debug("Domain: %s, Service: %s, Installation Entity: %s, Value: %s",
-                      CHARGER_DOMAIN_ZAPTEC, ZAPTEC_SERVICE_LIMIT_CURRENT, installation_id, min(limit.values()))
-        
+        _LOGGER.debug(
+            "Domain: %s, Service: %s, Installation Entity: %s, Value: %s",
+            CHARGER_DOMAIN_ZAPTEC,
+            ZAPTEC_SERVICE_LIMIT_CURRENT,
+            installation_id,
+            min(limit.values()),
+        )
+
         await self.hass.services.async_call(
             domain=CHARGER_DOMAIN_ZAPTEC,
             service=ZAPTEC_SERVICE_LIMIT_CURRENT,
