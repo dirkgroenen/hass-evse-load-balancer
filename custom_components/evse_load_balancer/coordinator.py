@@ -1,7 +1,7 @@
 """Main coordinator for load balacer."""
 
 import logging
-from datetime import datetime, timedelta  # Ensure datetime is imported
+import datetime as dt
 from functools import cached_property
 from math import floor
 from time import time
@@ -44,7 +44,7 @@ class EVSELoadBalancerCoordinator:
     """Coordinator for the EVSE Load Balancer."""
 
     # MODIFIED: Store as datetime object or None
-    _last_check_timestamp: datetime | None = None
+    _last_check_timestamp: dt.datetime | None = None
     _last_charger_target_update: tuple[dict[Phase, int], int] | None = None
 
     def __init__(
@@ -65,8 +65,8 @@ class EVSELoadBalancerCoordinator:
 
         self._previous_current_availability: dict[Phase, int] | None = None
 
-        self._missing_data_start: dict[Phase, datetime] = {}
-        self._grace_period = timedelta(seconds=60)  # Adjust grace period as needed
+        self._missing_data_start: dict[Phase, dt.datetime] = {}
+        self._grace_period = dt.timedelta(seconds=60)  # Adjust grace period as needed
 
     async def async_setup(self) -> None:
         """Set up the coordinator and its managed components."""
@@ -152,7 +152,7 @@ class EVSELoadBalancerCoordinator:
     def get_available_current_for_phase(self, phase: Phase) -> int | None:
         """Get the available current for a given phase."""
         active_current = self._meter.get_active_phase_current(phase)
-        now = datetime.now(tz=datetime.timezone.utc)
+        now = dt.datetime.now(tz=dt.timezone.utc)
 
         if active_current is None:
             # Start grace period timer if not already started
@@ -221,14 +221,14 @@ class EVSELoadBalancerCoordinator:
         return COORDINATOR_STATE_AWAITING_CHARGER
 
     @property
-    def get_last_check_timestamp(self) -> datetime | None:
+    def get_last_check_timestamp(self) -> dt.datetime | None:
         """Get the timestamp of the last check cycle."""
         return self._last_check_timestamp
 
     @callback
-    def _execute_update_cycle(self, now: datetime) -> None:
+    def _execute_update_cycle(self, now: dt.datetime) -> None:
         """Execute the main update cycle for load balancing."""
-        self._last_check_timestamp = datetime.now().astimezone()
+        self._last_check_timestamp = dt.datetime.now().astimezone()
         available_currents = self._get_available_currents()
 
         self._async_update_sensors()
