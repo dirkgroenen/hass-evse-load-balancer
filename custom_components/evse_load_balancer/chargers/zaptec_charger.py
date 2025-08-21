@@ -23,7 +23,7 @@ class ZaptecEntityMap:
 
     ChargingCurrent = "charger_max_current"
     MaxChargingCurrent = "available_current"
-    Status = "operating_mode"
+    Status = "charger_operation_mode"
 
 
 class ZaptecStatusMap:
