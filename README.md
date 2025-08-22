@@ -54,6 +54,7 @@
 - Amina S Chargers (via [Zigbee2MQTT/amina_S](https://www.zigbee2mqtt.io/devices/amina_S.html))
 - Lektrico Chargers (via [lektrico](https://www.home-assistant.io/integrations/lektrico/))
 - Keba Charging Station (BMW Wallbox) (via [keba](https://www.home-assistant.io/integrations/keba/))
+- OCPP Chargers (via [lbbrhzn/ocpp](https://github.com/lbbrhzn/ocpp))
 - ... additional chargers to be added ...
 
 ## How It Works

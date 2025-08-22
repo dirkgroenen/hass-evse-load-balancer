@@ -27,6 +27,7 @@ from .const import (
     CHARGER_DOMAIN_EASEE,
     CHARGER_DOMAIN_KEBA,
     CHARGER_DOMAIN_LEKTRICO,
+    CHARGER_DOMAIN_OCPP,
     CHARGER_DOMAIN_ZAPTEC,
     CHARGER_MANUFACTURER_AMINA,
     DOMAIN,
@@ -60,6 +61,7 @@ _charger_device_filter_list: list[dict[str, str]] = [
         "integration": HA_INTEGRATION_DOMAIN_MQTT,
         "manufacturer": CHARGER_MANUFACTURER_AMINA,
     },
+    {"integration": CHARGER_DOMAIN_OCPP},
 ]
 
 STEP_INIT_SCHEMA = vol.Schema(
