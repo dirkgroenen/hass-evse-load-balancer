@@ -46,6 +46,7 @@
 ### Energy Meters
 - DSMR-compatible meters (via [DSMR Smart Meter](https://www.home-assistant.io/integrations/dsmr/))
 - HomeWizard meters (via [HomeWizard](https://www.home-assistant.io/integrations/homewizard/))
+- Tibber Pulse (via [Tibber](https://www.home-assistant.io/integrations/tibber/))
 - Custom configurations using existing Home Assistant sensors (1-3 Phase support)
 
 ### EV Chargers
