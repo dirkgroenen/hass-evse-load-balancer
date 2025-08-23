@@ -23,7 +23,7 @@ class ZaptecEntityMap:
 
     ChargingCurrent = "charger_max_current"
     MaxChargingCurrent = "available_current"
-    Status = "operating_mode"
+    Status = "charger_operation_mode"
 
 
 class ZaptecStatusMap:
@@ -33,11 +33,11 @@ class ZaptecStatusMap:
     See https://github.com/custom-components/zaptec/blob/master/custom_components/zaptec/sensor.py#L43-L49
     """
 
-    Unknown = "Unknown"
-    Disconnected = "Disconnected"
-    ConnectedRequesting = "Waiting"
-    ConnectedCharging = "Charging"
-    ConnectedFinished = "Charge done"
+    Unknown = "unknown"
+    Disconnected = "disconnected"
+    ConnectedRequesting = "connected_requesting"
+    ConnectedCharging = "connected_charging"
+    ConnectedFinished = "connected_finished"
 
 
 class ZaptecCharger(HaDevice, Charger):
@@ -72,15 +72,14 @@ class ZaptecCharger(HaDevice, Charger):
 
     async def set_current_limit(self, limit: dict[Phase, int]) -> None:
         """Set the current limit for the Zaptec charger."""
-        entity_id = self._get_entity_id_by_translation_key(
-            ZaptecEntityMap.ChargingCurrent
-        )
+        installation_device_id = self.device.via_device_id
+
         await self.hass.services.async_call(
             domain=CHARGER_DOMAIN_ZAPTEC,
             service=ZAPTEC_SERVICE_LIMIT_CURRENT,
             service_data={
-                "device_id": entity_id,
-                "value": int(min(limit.values())),
+                "device_id": installation_device_id,
+                "available_current": int(min(limit.values())),
             },
             blocking=True,
         )

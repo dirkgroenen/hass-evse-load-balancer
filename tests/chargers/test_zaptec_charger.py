@@ -59,7 +59,11 @@ def zaptec_charger(mock_hass, mock_config_entry, mock_device_entry):
         )
         # Mock the methods used to get entity information
         charger._get_entity_state_by_translation_key = MagicMock()
-        charger._get_entity_id_by_translation_key = MagicMock(return_value="sensor.zaptec_charger_max_current")
+        charger._get_entity_id_by_translation_key = MagicMock()
+
+        # Make sure the mock device entry has the via_device_id we expect
+        mock_device_entry.via_device_id = "1234567890abcdef1234567890abcdef"
+        
         return charger
 
 
@@ -80,8 +84,8 @@ async def test_set_current_limit(zaptec_charger, mock_hass):
         domain=CHARGER_DOMAIN_ZAPTEC,
         service=ZAPTEC_SERVICE_LIMIT_CURRENT,
         service_data={
-            "device_id": "sensor.zaptec_charger_max_current",
-            "value": 14,  # Should use minimum of the values
+            "device_id": "1234567890abcdef1234567890abcdef",  # Mocked installation ID
+            "available_current": 14,  # Should use minimum of the values
         },
         blocking=True,
     )
