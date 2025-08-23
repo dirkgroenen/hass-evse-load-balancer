@@ -67,16 +67,16 @@ class AmsleserMeter(Meter, HaDevice):
             )
             return None
         # convert kW to W in order to calculate the current
-        return floor(active_power_w / voltage_state) if voltage_state else None
+        return floor(active_power_w * 1000.0 / voltage_state) if voltage_state else None
 
     def get_active_phase_power(self, phase: Phase) -> float | None:
         """Return the active power on a given phase."""
         consumption_state = self._get_entity_state_for_phase_sensor(
             phase, cf.CONF_PHASE_SENSOR_CONSUMPTION
         )
-        production_state = self._get_entity_state_for_phase_sensor(
-            phase, cf.CONF_PHASE_SENSOR_PRODUCTION
-        )
+        #production_state = self._get_entity_state_for_phase_sensor(
+        #    phase, cf.CONF_PHASE_SENSOR_PRODUCTION
+        #)
 
         if consumption_state is None:
             _LOGGER.warning(
@@ -85,7 +85,8 @@ class AmsleserMeter(Meter, HaDevice):
                 consumption_state,
             )
             return None
-        return consumption_state
+        # Amsleser returns W, convert to kW for consistency.
+        return consumption_state / 1000.0
 
     def get_tracking_entities(self) -> list[str]:
         """Return a list of entity IDs that should be tracked for this meter."""

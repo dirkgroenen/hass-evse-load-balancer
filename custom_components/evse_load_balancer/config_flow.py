@@ -31,7 +31,7 @@ from .const import (
     HA_INTEGRATION_DOMAIN_MQTT,
     METER_MANUFACTURER_AMSLESER,
     SUPPORTED_CHARGER_DEVICE_DOMAINS,
-    SUPPORTED_METER_DEVICE_DOMAINS,
+    SUPPORTED_METER_DEVICES
 )
 from .exceptions.validation_exception import ValidationExceptionError
 from .options_flow import EvseLoadBalancerOptionsFlow
@@ -67,16 +67,13 @@ if HA_INTEGRATION_DOMAIN_MQTT in SUPPORTED_CHARGER_DEVICE_DOMAINS:
         }
     )
 
-_meter_device_filter_list: list[dict[str, str]] = [
-    {"integration": domain} for domain in SUPPORTED_METER_DEVICE_DOMAINS
-]
+_meter_device_filter_list: list[dict[str, str]] = []
 
-_meter_device_filter_list.append(
-    {
-        "integration": HA_INTEGRATION_DOMAIN_MQTT,
-        "manufacturer": METER_MANUFACTURER_AMSLESER
-    }
-)
+for (domain, manufacturer) in SUPPORTED_METER_DEVICES:
+    filter_entry = {"integration": domain}
+    if manufacturer is not None:
+        filter_entry["manufacturer"] = manufacturer
+    _meter_device_filter_list.append(filter_entry)
 
 
 STEP_INIT_SCHEMA = vol.Schema(
