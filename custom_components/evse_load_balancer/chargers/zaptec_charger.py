@@ -33,9 +33,9 @@ class ZaptecStatusMap:
 
     Unknown = "Unknown"
     Disconnected = "Disconnected"
-    ConnectedRequesting = "Waiting"
-    ConnectedCharging = "Charging"
-    ConnectedFinished = "Charge done"
+    ConnectedRequesting = "Connected_Requesting"
+    ConnectedCharging = "Connected_Charging"
+    ConnectedFinished = "Connected_Finished"
 
 
 class ZaptecCharger(HaDevice, Charger):
