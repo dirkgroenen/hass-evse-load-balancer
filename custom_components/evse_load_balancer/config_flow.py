@@ -46,6 +46,7 @@ CONF_PHASE_KEY_THREE = "l3"
 CONF_PHASE_SENSOR = "power"
 CONF_PHASE_SENSOR_CONSUMPTION = "power_consumption"
 CONF_PHASE_SENSOR_PRODUCTION = "power_production"
+CONF_PHASE_SENSOR_CURRENT = "current"
 CONF_PHASE_SENSOR_VOLTAGE = "voltage"
 CONF_CUSTOM_PHASE_CONFIG = "custom_phase_config"
 CONF_METER_DEVICE = "meter_device"
@@ -98,8 +99,9 @@ async def validate_init_input(
     if not data.get(CONF_METER_DEVICE) and not data.get(CONF_CUSTOM_PHASE_CONFIG):
         # If the user has selected a custom phase configuration, but not a meter device,
         # we need to show an error message.
-        raise ValidationExceptionError("base", "metering_selection_required")  # noqa: EM101
-
+        error_field = "base"
+        error_code = "metering_selection_required"
+        raise ValidationExceptionError(error_field, error_code)
     return data
 
 

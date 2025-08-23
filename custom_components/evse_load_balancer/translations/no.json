@@ -1,0 +1,76 @@
+{
+    "title": "EVSE Load Balancer",
+    "config": {
+        "error": {
+            "metering_selection_required": "Angi enten en smartmåler eller velg 'Avansert energikonfigurasjon'"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "charger_device": "EVSE-lader",
+                    "meter_device": "Smart strømmåler",
+                    "custom_phase_config": "Avansert energikonfigurasjon (brukes når ingen energimåler er tilgjengelig)",
+                    "fuse_size": "Sikringsstørrelse per fase (A)",
+                    "phase_count": "Antall faser"
+                },
+                "description": "Angi detaljer for laderen og måleren din.",
+                "title": "Konfigurasjon"
+            },
+            "power": {
+                "data": {
+                    "l1": "Fase én (L1)",
+                    "l2": "Fase to (L2)",
+                    "l3": "Fase tre (L3)",
+                    "power_consumption": "Energiforbruk",
+                    "power_production": "Energiproduksjon",
+                    "voltage": "Spenning"
+                },
+                "description": "Angi detaljer for energisensorer for hver fase hvis tilpasset konfigurasjon er valgt.",
+                "title": "Energikonfigurasjon"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Innstillinger for EVSE Load Balancer",
+                "data": {
+                    "charge_limit_hysteresis": "Hysterese (minutter)",
+                    "max_fuse_load_amps": "Maksimal sikringsbelastning (A)"
+                },
+                "description": "Juster oppførselen til EVSE Load Balancer. For 'Maksimal sikringsbelastning' betyr verdien 0 ingen overstyring og hovedsikringens størrelse vil bli brukt."
+            }
+        },
+        "error": {
+            "invalid_max_fuse_override": "Ugyldig verdi for maksimal sikringsoverstyring.",
+            "invalid_number_format": "Et numerisk verdi var forventet."
+        },
+        "abort": {
+            "already_configured": "Denne enheten eller tjenesten er allerede konfigurert."
+        }
+    },
+    "entity": {
+        "sensor": {
+            "evse_load_balancing_state": {
+                "name": "Lastbalanseringsmodus",
+                "state": {
+                    "awaiting_charger": "Venter på lader",
+                    "monitoring_loads": "Overvåker laster",
+                    "error": "Feil"
+                }
+            },
+            "evse_last_check": {
+                "name": "Sist kontrollert"
+            },
+            "evse_available_current_l1": {
+                "name": "Tilgjengelig strøm L1"
+            },
+            "evse_available_current_l2": {
+                "name": "Tilgjengelig strøm L2"
+            },
+            "evse_available_current_l3": {
+                "name": "Tilgjengelig strøm L3"
+            }
+        }
+    }
+}
