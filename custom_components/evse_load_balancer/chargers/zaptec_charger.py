@@ -15,14 +15,12 @@ _LOGGER = logging.getLogger(__name__)
 
 # Constants for the Zaptec integration
 
-ZAPTEC_SERVICE_LIMIT_CURRENT = "limit_current"
-
 
 class ZaptecEntityMap:
     """Map of Zaptec entity translation keys."""
 
-    ChargingCurrent = "charger_max_current"
-    MaxChargingCurrent = "available_current"
+    MaxChargingCurrent = "charger_max_current"
+    AvailableCurrent = "available_current"
     Status = "operating_mode"
 
 
@@ -72,15 +70,20 @@ class ZaptecCharger(HaDevice, Charger):
 
     async def set_current_limit(self, limit: dict[Phase, int]) -> None:
         """Set the current limit for the Zaptec charger."""
-        entity_id = self._get_entity_id_by_translation_key(
-            ZaptecEntityMap.ChargingCurrent
+        # Get the entity_id for the charger_max_current number entity
+        charger_max_current_entity_id = self._get_entity_id_by_translation_key(
+            ZaptecEntityMap.MaxChargingCurrent
         )
+
+        value = min(limit.values())
+
+        # Call the Home Assistant number.set_value service
         await self.hass.services.async_call(
-            domain=CHARGER_DOMAIN_ZAPTEC,
-            service=ZAPTEC_SERVICE_LIMIT_CURRENT,
+            domain="number",
+            service="set_value",
             service_data={
-                "device_id": entity_id,
-                "value": int(min(limit.values())),
+                "entity_id": charger_max_current_entity_id,
+                "value": value,
             },
             blocking=True,
         )
@@ -88,7 +91,7 @@ class ZaptecCharger(HaDevice, Charger):
     def get_current_limit(self) -> dict[Phase, int] | None:
         """Get the current limit set on the charger."""
         entity_state = self._get_entity_state_by_translation_key(
-            ZaptecEntityMap.ChargingCurrent
+            ZaptecEntityMap.MaxChargingCurrent
         )
 
         try:
@@ -103,7 +106,7 @@ class ZaptecCharger(HaDevice, Charger):
     def get_max_current_limit(self) -> dict[Phase, int] | None:
         """Return maximum configured current for the charger."""
         state = self._get_entity_state_by_translation_key(
-            ZaptecEntityMap.MaxChargingCurrent
+            ZaptecEntityMap.AvailableCurrent
         )
         if state is None:
             _LOGGER.warning(
@@ -111,7 +114,7 @@ class ZaptecCharger(HaDevice, Charger):
                     "Max charger limit not available. "
                     "Make sure the required entity (%s) is enabled"
                 ),
-                ZaptecEntityMap.MaxChargingCurrent,
+                ZaptecEntityMap.AvailableCurrent,
             )
             return None
 

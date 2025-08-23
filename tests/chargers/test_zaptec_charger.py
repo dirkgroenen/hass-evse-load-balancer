@@ -12,7 +12,6 @@ from custom_components.evse_load_balancer.chargers.zaptec_charger import (
     ZaptecEntityMap,
     ZaptecStatusMap,
     PhaseMode,
-    ZAPTEC_SERVICE_LIMIT_CURRENT,
 )
 from custom_components.evse_load_balancer.const import CHARGER_DOMAIN_ZAPTEC
 
@@ -42,7 +41,7 @@ def mock_device_entry():
     """Create a mock DeviceEntry object for testing."""
     device_entry = MagicMock(spec=DeviceEntry)
     device_entry.id = "test_device_id"
-    device_entry.identifiers = {("zaptec", "test_charger")}
+    device_entry.identifiers = {(CHARGER_DOMAIN_ZAPTEC, "test_charger")}
     return device_entry
 
 
@@ -59,7 +58,7 @@ def zaptec_charger(mock_hass, mock_config_entry, mock_device_entry):
         )
         # Mock the methods used to get entity information
         charger._get_entity_state_by_translation_key = MagicMock()
-        charger._get_entity_id_by_translation_key = MagicMock(return_value="sensor.zaptec_charger_max_current")
+        charger._get_entity_id_by_translation_key = MagicMock(return_value="number.zaptec_charger_max_current")
         return charger
 
 
@@ -77,10 +76,10 @@ async def test_set_current_limit(zaptec_charger, mock_hass):
 
     # Verify service call was made with correct parameters
     mock_hass.services.async_call.assert_called_once_with(
-        domain=CHARGER_DOMAIN_ZAPTEC,
-        service=ZAPTEC_SERVICE_LIMIT_CURRENT,
+        domain="number",
+        service="set_value",
         service_data={
-            "device_id": "sensor.zaptec_charger_max_current",
+            "entity_id": "number.zaptec_charger_max_current",
             "value": 14,  # Should use minimum of the values
         },
         blocking=True,
@@ -98,7 +97,7 @@ def test_get_current_limit_success(zaptec_charger):
     # Verify results
     assert result == {Phase.L1: 16, Phase.L2: 16, Phase.L3: 16}
     zaptec_charger._get_entity_state_by_translation_key.assert_called_once_with(
-        ZaptecEntityMap.ChargingCurrent
+        ZaptecEntityMap.MaxChargingCurrent
     )
 
 
@@ -113,7 +112,7 @@ def test_get_current_limit_none_state(zaptec_charger):
     # Verify results
     assert result is None
     zaptec_charger._get_entity_state_by_translation_key.assert_called_once_with(
-        ZaptecEntityMap.ChargingCurrent
+        ZaptecEntityMap.MaxChargingCurrent
     )
 
 
@@ -128,7 +127,7 @@ def test_get_current_limit_invalid_state(zaptec_charger):
     # Verify results
     assert result is None
     zaptec_charger._get_entity_state_by_translation_key.assert_called_once_with(
-        ZaptecEntityMap.ChargingCurrent
+        ZaptecEntityMap.MaxChargingCurrent
     )
 
 
@@ -143,7 +142,7 @@ def test_get_max_current_limit_success(zaptec_charger):
     # Verify results
     assert result == {Phase.L1: 32, Phase.L2: 32, Phase.L3: 32}
     zaptec_charger._get_entity_state_by_translation_key.assert_called_once_with(
-        ZaptecEntityMap.MaxChargingCurrent
+        ZaptecEntityMap.AvailableCurrent
     )
 
 
@@ -158,7 +157,7 @@ def test_get_max_current_limit_none_state(zaptec_charger):
     # Verify results
     assert result is None
     zaptec_charger._get_entity_state_by_translation_key.assert_called_once_with(
-        ZaptecEntityMap.MaxChargingCurrent
+        ZaptecEntityMap.AvailableCurrent
     )
 
 
@@ -173,7 +172,7 @@ def test_get_max_current_limit_float_value(zaptec_charger):
     # Verify results
     assert result == {Phase.L1: 32, Phase.L2: 32, Phase.L3: 32}
     zaptec_charger._get_entity_state_by_translation_key.assert_called_once_with(
-        ZaptecEntityMap.MaxChargingCurrent
+        ZaptecEntityMap.AvailableCurrent
     )
 
 
