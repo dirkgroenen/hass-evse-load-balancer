@@ -283,3 +283,184 @@ def test_multiple_chargers_allocation(power_allocator: PowerAllocator):
     # For Phase.L1: charger2 should get -10 * (16/26) = -6.15 ≈ -7
     assert result["charger1"][Phase.L1] == 6  # 10 - 4 = 6
     assert result["charger2"][Phase.L1] == 9  # 16 - 7 = 9
+
+
+# ===== SINGLE PHASE POWER ALLOCATOR TESTS =====
+
+def test_single_phase_power_allocation_overcurrent(power_allocator: PowerAllocator):
+    """Test power allocation for single phase overcurrent scenario."""
+    # Create and add a charger for single phase
+    charger = MockCharger(initial_current=16, charger_id="charger1")
+    charger.set_can_charge(True)
+    power_allocator.add_charger_and_initialize(charger)
+
+    # Simulate single phase overcurrent
+    available_currents = {
+        Phase.L1: -5,  # Only L1 phase is used
+    }
+
+    result = power_allocator.update_allocation(available_currents)
+
+    # Verify results - charger should be reduced proportionally
+    assert "charger1" in result
+    assert result["charger1"] == {
+        Phase.L1: 11,  # Reduced from 16 to 11 (16 + (-5) = 11)
+        Phase.L2: 11,  # Synced phases should have same value
+        Phase.L3: 11,
+    }
+
+
+def test_single_phase_power_allocation_recovery(power_allocator: PowerAllocator):
+    """Test power allocation for single phase recovery scenario."""
+    # Create and add a charger that's been reduced
+    charger = MockCharger(initial_current=16, charger_id="charger1")
+    charger.set_can_charge(True)
+    # Set current limit lower than the requested limit
+    charger.set_current_limits({
+        Phase.L1: 10,
+        Phase.L2: 10,
+        Phase.L3: 10
+    })
+    power_allocator.add_charger_and_initialize(charger)
+
+    # Make sure the power allocator knows the requested current
+    power_allocator._chargers["charger1"].requested_current = {
+        Phase.L1: 16,
+        Phase.L2: 16,
+        Phase.L3: 16
+    }
+
+    # Simulate single phase recovery with available capacity
+    available_currents = {
+        Phase.L1: 3,  # Only L1 phase is used
+    }
+
+    result = power_allocator.update_allocation(available_currents)
+
+    # Verify results - charger should be increased proportionally
+    assert "charger1" in result
+    assert result["charger1"] == {
+        Phase.L1: 13,  # Increased from 10 to 13 (10 + 3 = 13)
+        Phase.L2: 13,  # Synced phases should have same value
+        Phase.L3: 13,
+    }
+
+
+def test_single_phase_power_allocation_no_other_phases(power_allocator: PowerAllocator):
+    """Test that single phase allocation ignores L2 and L3 phases."""
+    # Create and add a charger
+    charger = MockCharger(initial_current=16, charger_id="charger1")
+    charger.set_can_charge(True)
+    power_allocator.add_charger_and_initialize(charger)
+
+    # Simulate single phase with only L1 data
+    available_currents = {
+        Phase.L1: -2,  # Only L1 phase provided
+    }
+
+    result = power_allocator.update_allocation(available_currents)
+
+    # Should still work correctly with only L1 phase
+    assert "charger1" in result
+    assert result["charger1"] == {
+        Phase.L1: 14,  # Reduced from 16 to 14
+        Phase.L2: 14,  # Synced phases
+        Phase.L3: 14,
+    }
+
+
+def test_single_phase_multiple_chargers_allocation(power_allocator: PowerAllocator):
+    """Test power allocation for multiple chargers in single phase setup."""
+    # Create and add two chargers
+    charger1 = MockCharger(initial_current=16, charger_id="charger1")
+    charger1.set_can_charge(True)
+    charger2 = MockCharger(initial_current=12, charger_id="charger2")
+    charger2.set_can_charge(True)
+
+    power_allocator.add_charger_and_initialize(charger1)
+    power_allocator.add_charger_and_initialize(charger2)
+
+    # Simulate single phase overcurrent requiring 10A reduction total
+    available_currents = {
+        Phase.L1: -10,
+    }
+
+    result = power_allocator.update_allocation(available_currents)    # Verify both chargers are reduced proportionally
+    assert "charger1" in result
+    assert "charger2" in result
+
+    # Actual proportional reduction based on current usage:
+    # Total current = 16 + 12 = 28
+    # Charger1 proportion: 16/28 = 4/7
+    # Charger2 proportion: 12/28 = 3/7
+    # Charger1 cut: floor(-10 * (4/7)) = floor(-5.71) = -6
+    # Charger2 cut: floor(-10 * (3/7)) = floor(-4.29) = -5
+    # Charger1 new: 16 + (-6) = 10
+    # Charger2 new: 12 + (-5) = 7
+
+    assert result["charger1"][Phase.L1] == 10  # 16 - 6 = 10
+    assert result["charger2"][Phase.L1] == 7   # 12 - 5 = 7
+
+    # All phases should be synced
+    for phase in [Phase.L1, Phase.L2, Phase.L3]:
+        assert result["charger1"][phase] == 10
+        assert result["charger2"][phase] == 7
+
+
+def test_single_phase_charger_state_initialization(power_allocator: PowerAllocator):
+    """Test that charger state is properly initialized for single phase."""
+    # Create and add a charger
+    charger = MockCharger(initial_current=16, charger_id="charger1")
+    charger.set_can_charge(True)
+
+    success = power_allocator.add_charger_and_initialize(charger)
+
+    assert success is True
+    assert "charger1" in power_allocator._chargers
+
+    state = power_allocator._chargers["charger1"]
+    assert state.initialized is True
+    assert state.requested_current == {
+        Phase.L1: 16,
+        Phase.L2: 16,
+        Phase.L3: 16
+    }
+    assert state.last_applied_current == {
+        Phase.L1: 16,
+        Phase.L2: 16,
+        Phase.L3: 16
+    }
+
+
+def test_single_phase_manual_override_detection(power_allocator: PowerAllocator):
+    """Test manual override detection for single phase setup."""
+    # Create and add a charger
+    charger = MockCharger(initial_current=16, charger_id="charger1")
+    charger.set_can_charge(True)
+    power_allocator.add_charger_and_initialize(charger)
+
+    # Apply some limits through the allocator
+    power_allocator.update_applied_current(
+        "charger1",
+        {Phase.L1: 12, Phase.L2: 12, Phase.L3: 12},
+        timestamp=int(datetime.now().timestamp())
+    )
+
+    # Now simulate user manually changing the charger to different values
+    charger.set_current_limits({
+        Phase.L1: 14,
+        Phase.L2: 14,
+        Phase.L3: 14
+    })
+
+    # Get charger state and trigger manual override detection
+    state = power_allocator._chargers["charger1"]
+    state.detect_manual_override()
+
+    # The override should be detected and requested current should be updated
+    assert state.manual_override_detected is True
+    assert state.requested_current == {
+        Phase.L1: 14,
+        Phase.L2: 14,
+        Phase.L3: 14
+    }

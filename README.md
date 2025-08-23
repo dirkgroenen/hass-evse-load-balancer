@@ -44,15 +44,26 @@
 > Chargers and meters are implemented with best-effort, but often purely based on API documentation and available code.
 
 ### Energy Meters
-- DSMR-compatible meters (via [DSMR Smart Meter](https://www.home-assistant.io/integrations/dsmr/))
-- HomeWizard meters (via [HomeWizard](https://www.home-assistant.io/integrations/homewizard/))
-- Custom configurations using existing Home Assistant sensors (1-3 Phase support)
+
+| Integration | Documentation | Minimum Version |
+|-------------|---------------|----------------|
+| DSMR-compatible meters | [DSMR Smart Meter](https://www.home-assistant.io/integrations/dsmr/) | ? |
+| HomeWizard meters | [HomeWizard](https://www.home-assistant.io/integrations/homewizard/) | ? |
+| Custom configurations | Existing Home Assistant sensors | n.a. |
+
+*Supports 1-3 Phase configurations*
 
 ### EV Chargers
-- Easee Chargers (via [nordicopen/easee_hass](https://github.com/nordicopen/easee_hass))
-- Zaptec Chargers (via [custom-components/zaptec](https://github.com/custom-components/zaptec))
-- Amina S Chargers (via [Zigbee2MQTT/amina_S](https://www.zigbee2mqtt.io/devices/amina_S.html))
-- ... additional chargers to be added ...
+
+| Integration | Documentation | Minimum Version |
+|-------------|---------------|----------------|
+| Easee Chargers | [nordicopen/easee_hass](https://github.com/nordicopen/easee_hass) | v0.9.62 |
+| Zaptec Chargers | [custom-components/zaptec](https://github.com/custom-components/zaptec) | v0.8.0 |
+| Amina S Chargers | [Zigbee2MQTT/amina_S](https://www.zigbee2mqtt.io/devices/amina_S.html) | ? |
+| Lektrico Chargers | [lektrico](https://www.home-assistant.io/integrations/lektrico/) | HA 2024.10+ |
+| Keba Charging Station (BMW Wallbox) | [keba](https://www.home-assistant.io/integrations/keba/) | ? |
+
+*Additional chargers to be added...*
 
 ## How It Works
 

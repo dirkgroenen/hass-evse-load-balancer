@@ -38,9 +38,7 @@ class HaDevice:
             include_disabled_entities=True,
         )
 
-    def _get_entity_id_by_translation_key(
-        self, entity_translation_key: str
-    ) -> str | None:
+    def _get_entity_id_by_translation_key(self, entity_translation_key: str) -> str:
         """Get the entity ID for a given translation key."""
         entity: RegistryEntry | None = next(
             (e for e in self.entities if e.translation_key == entity_translation_key),
@@ -48,6 +46,21 @@ class HaDevice:
         )
         if entity is None:
             msg = f"Entity not found for translation_key '{entity_translation_key}'"
+            raise ValueError(msg)
+        if entity.disabled:
+            _LOGGER.error(
+                "Required entity %s is disabled. Please enable it!", entity.entity_id
+            )
+        return entity.entity_id
+
+    def _get_entity_id_by_unique_id(self, entity_unique_id: str) -> str | None:
+        """Get the entity ID for a given unique ID."""
+        entity: RegistryEntry | None = next(
+            (e for e in self.entities if e.unique_id == entity_unique_id),
+            None,
+        )
+        if entity is None:
+            msg = f"Entity not found for unique_id '{entity_unique_id}'"
             raise ValueError(msg)
         if entity.disabled:
             _LOGGER.error(
@@ -112,6 +125,20 @@ class HaDevice:
     ) -> dict | None:
         """Get the state attributes for the entity for a given translation key."""
         entity_id = self._get_entity_id_by_translation_key(entity_translation_key)
+        return self._get_entity_state_attrs(entity_id)
+
+    def _get_entity_state_by_unique_id(
+        self, entity_unique_id: str, parser_fn: Callable | None = None
+    ) -> Any | None:
+        """Get the state of the entity for a given unique ID."""
+        entity_id = self._get_entity_id_by_unique_id(entity_unique_id)
+        return self._get_entity_state(entity_id, parser_fn)
+
+    def _get_entity_state_attrs_by_unique_id(
+        self, entity_unique_id: str
+    ) -> dict | None:
+        """Get the state attributes for the entity for a given unique ID."""
+        entity_id = self._get_entity_id_by_unique_id(entity_unique_id)
         return self._get_entity_state_attrs(entity_id)
 
     def _get_entity_state_by_key(
