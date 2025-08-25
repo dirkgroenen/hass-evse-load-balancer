@@ -21,7 +21,7 @@ class ZaptecEntityMap:
 
     MaxChargingCurrent = "charger_max_current"
     AvailableCurrent = "available_current"
-    Status = "operating_mode"
+    Status = "charger_operation_mode"
 
 
 class ZaptecStatusMap:
@@ -31,11 +31,11 @@ class ZaptecStatusMap:
     See https://github.com/custom-components/zaptec/blob/master/custom_components/zaptec/sensor.py#L43-L49
     """
 
-    Unknown = "Unknown"
-    Disconnected = "Disconnected"
-    ConnectedRequesting = "Connected_Requesting"
-    ConnectedCharging = "Connected_Charging"
-    ConnectedFinished = "Connected_Finished"
+    Unknown = "unknown"
+    Disconnected = "disconnected"
+    ConnectedRequesting = "connected_requesting"
+    ConnectedCharging = "connected_charging"
+    ConnectedFinished = "connected_finished"
 
 
 class ZaptecCharger(HaDevice, Charger):
