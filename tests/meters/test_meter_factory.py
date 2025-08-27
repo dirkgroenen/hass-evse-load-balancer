@@ -4,9 +4,10 @@ import pytest
 from unittest.mock import MagicMock, patch
 from custom_components.evse_load_balancer.meters import meter_factory
 from custom_components.evse_load_balancer.meters.custom_meter import CustomMeter
+from custom_components.evse_load_balancer.meters.amshan_meter import AmshanMeter
 from custom_components.evse_load_balancer.meters.dsmr_meter import DsmrMeter
 from custom_components.evse_load_balancer.meters.homewizard_meter import HomeWizardMeter
-from custom_components.evse_load_balancer.const import METER_DOMAIN_DSMR, METER_DOMAIN_HOMEWIZARD, SUPPORTED_METER_DEVICE_DOMAINS
+from custom_components.evse_load_balancer.const import METER_DOMAIN_AMSHAN, METER_DOMAIN_DSMR, METER_DOMAIN_HOMEWIZARD, SUPPORTED_METER_DEVICE_DOMAINS
 
 
 @pytest.fixture
@@ -48,6 +49,13 @@ async def test_meter_factory_homewizard_meter(mock_async_get, mock_hass, mock_co
     meter = await meter_factory(mock_hass, mock_config_entry, False, "device_id")
     assert isinstance(meter, HomeWizardMeter)
 
+@pytest.mark.asyncio
+@patch("custom_components.evse_load_balancer.meters.dr.async_get")
+async def test_meter_factory_amshan_meter(mock_async_get, mock_hass, mock_config_entry, mock_device_entry):
+    mock_device_entry.identifiers = {(METER_DOMAIN_AMSHAN, "id3")}
+    mock_async_get.return_value.async_get.return_value = mock_device_entry
+    meter = await meter_factory(mock_hass, mock_config_entry, False, "device_id")
+    assert isinstance(meter, AmshanMeter)
 
 @pytest.mark.asyncio
 @patch("custom_components.evse_load_balancer.meters.dr.async_get")
