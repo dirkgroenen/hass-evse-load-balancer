@@ -20,19 +20,19 @@ _LOGGER = logging.getLogger(__name__)
 # @see https://wiki.amsleser.no/en/api/mqtt
 ENTITY_REGISTRATION_MAP: dict[str, dict[str, str]] = {
     cf.CONF_PHASE_KEY_ONE: {
-        # cf.CONF_PHASE_SENSOR_PRODUCTION: "po1",
-        cf.CONF_PHASE_SENSOR_CONSUMPTION: "p1",
-        cf.CONF_PHASE_SENSOR_VOLTAGE: "u1",
+        # cf.CONF_PHASE_SENSOR_PRODUCTION: "PO1",
+        cf.CONF_PHASE_SENSOR_CONSUMPTION: "P1",
+        cf.CONF_PHASE_SENSOR_VOLTAGE: "U1",
     },
     cf.CONF_PHASE_KEY_TWO: {
-        # cf.CONF_PHASE_SENSOR_PRODUCTION: "po2",
-        cf.CONF_PHASE_SENSOR_CONSUMPTION: "p2",
-        cf.CONF_PHASE_SENSOR_VOLTAGE: "u2",
+        # cf.CONF_PHASE_SENSOR_PRODUCTION: "PO2",
+        cf.CONF_PHASE_SENSOR_CONSUMPTION: "P2",
+        cf.CONF_PHASE_SENSOR_VOLTAGE: "U2",
     },
     cf.CONF_PHASE_KEY_THREE: {
-        # cf.CONF_PHASE_SENSOR_PRODUCTION: "po3",
-        cf.CONF_PHASE_SENSOR_CONSUMPTION: "p3",
-        cf.CONF_PHASE_SENSOR_VOLTAGE: "u3",
+        # cf.CONF_PHASE_SENSOR_PRODUCTION: "PO3",
+        cf.CONF_PHASE_SENSOR_CONSUMPTION: "P3",
+        cf.CONF_PHASE_SENSOR_VOLTAGE: "U3",
     },
 }
 
