@@ -96,13 +96,13 @@ def test_get_tracking_entities(amsleser_meter):
             self.unique_id = f"amsleser_{key}"
             self.key = key
     amsleser_meter.entities = [
-        Entity("sensor.p1", "p1"),
-        Entity("sensor.u1", "u1"),
+        Entity("sensor.P1", "P1"),
+        Entity("sensor.U1", "U1"),
         Entity("sensor.other", "other"),
     ]
     result = amsleser_meter.get_tracking_entities()
-    assert "sensor.p1" in result
-    assert "sensor.u1" in result
+    assert "sensor.P1" in result
+    assert "sensor.U1" in result
     assert "sensor.other" not in result
 
 

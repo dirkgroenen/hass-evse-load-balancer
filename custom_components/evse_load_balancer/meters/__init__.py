@@ -6,14 +6,14 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
-from .amsleser_meter import AmsleserMeter
 from ..const import (  # noqa: TID252
+    HA_INTEGRATION_DOMAIN_MQTT,
     METER_DOMAIN_DSMR,
     METER_DOMAIN_HOMEWIZARD,
-    HA_INTEGRATION_DOMAIN_MQTT,
     METER_MANUFACTURER_AMSLESER,
     SUPPORTED_METER_DEVICE_DOMAINS,
 )
+from .amsleser_meter import AmsleserMeter
 from .custom_meter import CustomMeter
 from .dsmr_meter import DsmrMeter
 from .homewizard_meter import HomeWizardMeter
@@ -56,7 +56,10 @@ async def meter_factory(
         return DsmrMeter(hass, config_entry, device)
     if manufacturer == METER_DOMAIN_HOMEWIZARD:
         return HomeWizardMeter(hass, config_entry, device)
-    if manufacturer == HA_INTEGRATION_DOMAIN_MQTT and device.manufacturer == METER_MANUFACTURER_AMSLESER:
+    if (
+        manufacturer == HA_INTEGRATION_DOMAIN_MQTT
+        and device.manufacturer == METER_MANUFACTURER_AMSLESER
+    ):
         return AmsleserMeter(hass, config_entry, device)
 
     msg = f"Unsupported manufacturer: {device.identifiers}"

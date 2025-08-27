@@ -64,7 +64,7 @@ _charger_device_filter_list: list[dict[str, str]] = [
 
 _meter_device_filter_list: list[dict[str, str]] = []
 
-for (domain, manufacturer) in SUPPORTED_METER_DEVICES:
+for domain, manufacturer in SUPPORTED_METER_DEVICES:
     filter_entry = {"integration": domain}
     if manufacturer is not None:
         filter_entry["manufacturer"] = manufacturer

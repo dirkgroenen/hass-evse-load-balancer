@@ -74,9 +74,6 @@ class AmsleserMeter(Meter, HaDevice):
         consumption_state = self._get_entity_state_for_phase_sensor(
             phase, cf.CONF_PHASE_SENSOR_CONSUMPTION
         )
-        #production_state = self._get_entity_state_for_phase_sensor(
-        #    phase, cf.CONF_PHASE_SENSOR_PRODUCTION
-        #)
 
         if consumption_state is None:
             _LOGGER.warning(

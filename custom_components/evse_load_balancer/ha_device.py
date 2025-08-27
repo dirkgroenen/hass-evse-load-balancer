@@ -79,7 +79,6 @@ class HaDevice:
             (e for e in self.entities if e.unique_id.endswith(f"_{entity_key}")),
             None,
         )
-        _LOGGER.debug(', '.join([e.unique_id for e in self.entities]))
         if entity is None:
             msg = f"Entity with unique_id ending with '_{entity_key}' not found"
             raise ValueError(msg)
