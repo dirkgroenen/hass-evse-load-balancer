@@ -31,7 +31,7 @@ from .const import (
     CHARGER_MANUFACTURER_AMINA,
     DOMAIN,
     HA_INTEGRATION_DOMAIN_MQTT,
-    SUPPORTED_METER_DEVICE_DOMAINS,
+    SUPPORTED_METER_DEVICES,
 )
 from .exceptions.validation_exception import ValidationExceptionError
 from .options_flow import EvseLoadBalancerOptionsFlow
@@ -62,6 +62,15 @@ _charger_device_filter_list: list[dict[str, str]] = [
     },
 ]
 
+_meter_device_filter_list: list[dict[str, str]] = []
+
+for domain, manufacturer in SUPPORTED_METER_DEVICES:
+    filter_entry = {"integration": domain}
+    if manufacturer is not None:
+        filter_entry["manufacturer"] = manufacturer
+    _meter_device_filter_list.append(filter_entry)
+
+
 STEP_INIT_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_CHARGER_DEVICE): DeviceSelector(
@@ -79,9 +88,7 @@ STEP_INIT_SCHEMA = vol.Schema(
         vol.Optional(CONF_METER_DEVICE): DeviceSelector(
             DeviceSelectorConfig(
                 multiple=False,
-                filter=[
-                    {"integration": domain} for domain in SUPPORTED_METER_DEVICE_DOMAINS
-                ],
+                filter=_meter_device_filter_list,
             )
         ),
         vol.Optional(CONF_CUSTOM_PHASE_CONFIG): cv.boolean,
