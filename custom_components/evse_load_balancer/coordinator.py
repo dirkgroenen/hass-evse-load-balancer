@@ -63,8 +63,6 @@ class EVSELoadBalancerCoordinator:
         self._meter: Meter = meter
         self._charger: Charger = charger
 
-        self._previous_current_availability: dict[Phase, int] | None = None
-
     async def async_setup(self) -> None:
         """Set up the coordinator and its managed components."""
         await self._charger.async_setup()
@@ -212,9 +210,6 @@ class EVSELoadBalancerCoordinator:
             now=now.timestamp(),
         )
 
-        if not self._should_act_upon_availability(currents=computed_availability):
-            return
-
         allocation_results = self._power_allocator.update_allocation(
             available_currents=computed_availability
         )
@@ -231,19 +226,6 @@ class EVSELoadBalancerCoordinator:
                 applied_current=allocation_result,
                 timestamp=now.timestamp(),
             )
-
-    def _should_act_upon_availability(self, currents: dict[Phase, int]) -> bool:
-        """Check if any of the current values have changed and should be acted upon."""
-        if self._previous_current_availability is None:
-            self._previous_current_availability = currents
-            return True
-
-        previous = self._previous_current_availability
-        if any(previous[p] != current for p, current in currents.items()):
-            self._previous_current_availability = currents
-            return True
-
-        return False
 
     def _async_update_sensors(self) -> None:
         """Update all registered sensor states."""
@@ -267,25 +249,38 @@ class EVSELoadBalancerCoordinator:
             self.config_entry, of.OPTION_CHARGE_LIMIT_HYSTERESIS
         )
 
-        if now - last_update_time > MIN_CHARGER_UPDATE_DELAY:
-            if any(new_settings[p] < last_charger_target[p] for p in new_settings):
-                _LOGGER.debug(
-                    "New charger settings are lower, apply ignoring user setting. "
-                    "Last settings: %s, new settings: %s",
-                    last_charger_target,
-                    new_settings,
-                )
-                return True
+        # Allow immediate decreases for safety (overcurrent protection)
+        if any(new_settings[p] < last_charger_target[p] for p in new_settings):
+            _LOGGER.debug(
+                "New charger settings are lower, apply immediately for safety. "
+                "Last settings: %s, new settings: %s",
+                last_charger_target,
+                new_settings,
+            )
+            return True
 
-            if now - last_update_time > (of_charger_delay_minutes * 60):
-                return True
+        # For increases, require minimum delay
+        if now - last_update_time <= MIN_CHARGER_UPDATE_DELAY:
+            _LOGGER.debug(
+                "Charger settings was updated too recently (minimum delay). "
+                "Last update: %s, current time: %s. "
+                "Minimum delay: %s seconds",
+                last_update_time,
+                now,
+                MIN_CHARGER_UPDATE_DELAY,
+            )
+            return False
+
+        # For increases, also require configured delay
+        if now - last_update_time > (of_charger_delay_minutes * 60):
+            return True
 
         _LOGGER.debug(
-            "Charger settings was updated too recently. "
+            "Charger settings was updated too recently (configured delay). "
             "Last update: %s, current time: %s. "
             "Configured delay: %s minutes",
             last_update_time,
-            int(time()),
+            now,
             of_charger_delay_minutes,
         )
         return False
