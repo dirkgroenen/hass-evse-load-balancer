@@ -249,7 +249,7 @@ class EVSELoadBalancerCoordinator:
             self.config_entry, of.OPTION_CHARGE_LIMIT_HYSTERESIS
         )
 
-        # For increases, require minimum delay
+        # For any change a minimum delay is required
         if now - last_update_time <= MIN_CHARGER_UPDATE_DELAY:
             _LOGGER.debug(
                 "Charger settings was updated too recently (minimum delay). "
@@ -271,7 +271,7 @@ class EVSELoadBalancerCoordinator:
             )
             return True
 
-        # For increases, also require configured delay
+        # For increases, also require additional configured delay
         if now - last_update_time > (of_charger_delay_minutes * 60):
             return True
 

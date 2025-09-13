@@ -1013,7 +1013,7 @@ def test_overcurrent_does_not_bypass_fixed_timing_restrictions(coordinator_singl
     # Setup: Recent charger update (within all timing windows)
     coordinator_single_phase._last_charger_target_update = (
         {Phase.L1: 15},
-        int(datetime.now().timestamp()) - 15  # Just 25 seconds ago
+        int(datetime.now().timestamp()) - 15
     )
 
     # Setup: Overcurrent situation
