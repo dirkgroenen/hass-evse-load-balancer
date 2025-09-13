@@ -37,7 +37,7 @@ EXECUTION_CYCLE_DELAY: int = 1
 # Number of seconds between each charger update. This setting
 # makes sure that the charger is not updated too frequently and
 # allows a change of the charger's limit to actually take affect
-MIN_CHARGER_UPDATE_DELAY: int = 30
+MIN_CHARGER_UPDATE_DELAY: int = 20
 
 
 class EVSELoadBalancerCoordinator:
