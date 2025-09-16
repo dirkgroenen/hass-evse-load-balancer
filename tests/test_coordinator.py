@@ -336,9 +336,8 @@ def test_no_update_when_charger_shouldnt_be_checked(coordinator):
 def test_no_update_too_frequent(coordinator):
     """Test that no update happens when last update was too recent."""
     # Set recent update time
-    coordinator._last_charger_target_update = (
-        {Phase.L1: 10, Phase.L2: 10, Phase.L3: 10},
-        int(datetime.now().timestamp()) - 10,  # 10 seconds ago (less than MIN_CHARGER_UPDATE_DELAY)
+    coordinator._last_charger_update_time = (
+        int(datetime.now().timestamp()) - 10  # 10 seconds ago (less than MIN_CHARGER_UPDATE_DELAY)
     )
 
     # Execute update cycle
