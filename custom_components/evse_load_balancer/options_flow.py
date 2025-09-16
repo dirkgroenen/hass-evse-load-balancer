@@ -8,6 +8,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlowResult, OptionsFlow
 from homeassistant.helpers.selector import NumberSelector
 
+from . import config_flow as cf
 from .exceptions.validation_exception import ValidationExceptionError
 
 if TYPE_CHECKING:
@@ -16,10 +17,7 @@ if TYPE_CHECKING:
 OPTION_CHARGE_LIMIT_HYSTERESIS = "charge_limit_hysteresis"
 OPTION_MAX_FUSE_LOAD_AMPS = "max_fuse_load_amps"
 
-DEFAULT_VALUES: dict[str, Any] = {
-    OPTION_CHARGE_LIMIT_HYSTERESIS: 15,
-    OPTION_MAX_FUSE_LOAD_AMPS: 0,
-}
+DEFAULT_VALUES: dict[str, Any] = {OPTION_CHARGE_LIMIT_HYSTERESIS: 15}
 
 
 async def validate_init_input(
@@ -69,13 +67,15 @@ class EvseLoadBalancerOptionsFlow(OptionsFlow):
                 ),
                 vol.Optional(
                     OPTION_MAX_FUSE_LOAD_AMPS,
+                    # Get the original fuse size from config entry data to use as
+                    # default when max_fuse_load_amps is not set in options
                     default=options_values.get(
                         OPTION_MAX_FUSE_LOAD_AMPS,
-                        DEFAULT_VALUES[OPTION_MAX_FUSE_LOAD_AMPS],
+                        self.config_entry.data.get(cf.CONF_FUSE_SIZE),
                     ),
                 ): NumberSelector(
                     {
-                        "min": 0,
+                        "min": 1,
                         "step": 1,
                         "mode": "box",
                         "unit_of_measurement": "A",
