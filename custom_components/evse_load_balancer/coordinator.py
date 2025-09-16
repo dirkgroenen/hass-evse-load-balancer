@@ -218,12 +218,23 @@ class EVSELoadBalancerCoordinator:
         # iterate over the allocation results and update the charger
         # with the results. Just a bit of prep for the future...
         allocation_result = allocation_results.get(self._charger.id, None)
+        current_limit = self._charger.get_current_limit()
+
+        if current_limit is None:
+            _LOGGER.warning("Current charger limit unknown. Cannot adjust limit.")
+            return
+        if allocation_result is None:
+            _LOGGER.warning("No allocation result for charger. Cannot adjust limit.")
+            return
+
         if allocation_result and self._may_update_charger_settings(
-                new_settings=allocation_result,
-                timestamp=now.timestamp()):
+            new_settings=allocation_result,
+            current_limits=current_limit,
+            timestamp=now.timestamp(),
+        ):
             self._update_charger_settings(
-                new_limits=allocation_result,
-                timestamp=now.timestamp())
+                new_limits=allocation_result, timestamp=now.timestamp()
+            )
             self._power_allocator.update_applied_current(
                 charger_id=self._charger.id,
                 applied_current=allocation_result,
@@ -240,12 +251,17 @@ class EVSELoadBalancerCoordinator:
         """Check if the charger is in a state where its limit should be managed."""
         return self._power_allocator.should_monitor()
 
-    def _may_update_charger_settings(self, new_settings: dict[Phase, int], timestamp: int) -> bool:
+    def _may_update_charger_settings(
+        self,
+        new_settings: dict[Phase, int],
+        current_limits: dict[Phase, int],
+        timestamp: int,
+    ) -> bool:
         """Check if the charger settings haven't been updated too recently."""
-        if self._last_charger_target_update is None:
+        if self._last_charger_target_update_time is None:
             return True
 
-        last_charger_target, last_update_time = self._last_charger_target_update
+        last_update_time = self._last_charger_target_update_time
 
         of_charger_delay_minutes = of.EvseLoadBalancerOptionsFlow.get_option_value(
             self.config_entry, of.OPTION_CHARGE_LIMIT_HYSTERESIS
@@ -264,17 +280,19 @@ class EVSELoadBalancerCoordinator:
             return False
 
         # Allow immediate decreases for safety (overcurrent protection)
-        if any(new_settings[p] < last_charger_target[p] for p in new_settings):
+        if any(new_settings[p] < current_limits[p] for p in new_settings):
             _LOGGER.debug(
                 "New charger settings are lower, apply immediately for safety. "
-                "Last settings: %s, new settings: %s",
-                last_charger_target,
+                "Current settings: %s, new settings: %s",
+                current_limits,
                 new_settings,
             )
             return True
 
         # For increases, also require additional configured delay
-        if timestamp - last_update_time > (of_charger_delay_minutes * 60):
+        if any(
+            new_settings[p] > current_limits[p] for p in new_settings
+        ) and timestamp - last_update_time > (of_charger_delay_minutes * 60):
             return True
 
         _LOGGER.debug(
@@ -287,12 +305,11 @@ class EVSELoadBalancerCoordinator:
         )
         return False
 
-    def _update_charger_settings(self, new_limits: dict[Phase, int], timestamp: int) -> None:
+    def _update_charger_settings(
+        self, new_limits: dict[Phase, int], timestamp: int
+    ) -> None:
         _LOGGER.debug("New charger settings: %s", new_limits)
-        self._last_charger_target_update = (
-            new_limits,
-            timestamp,
-        )
+        self._last_charger_target_update_time = timestamp
         self._emit_charger_event(EVENT_ACTION_NEW_CHARGER_LIMITS, new_limits)
         self.hass.async_create_task(self._charger.set_current_limit(new_limits))
 
