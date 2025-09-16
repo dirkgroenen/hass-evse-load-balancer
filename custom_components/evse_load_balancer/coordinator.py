@@ -66,7 +66,7 @@ class EVSELoadBalancerCoordinator:
         self._previous_current_availability: dict[Phase, int] | None = None
 
         self._missing_data_start: dict[Phase, dt.datetime] = {}
-        self._grace_period = dt.timedelta(seconds=60)  # Adjust grace period as needed
+        self._grace_period = dt.timedelta(seconds=60)
 
     async def async_setup(self) -> None:
         """Set up the coordinator and its managed components."""
@@ -174,7 +174,7 @@ class EVSELoadBalancerCoordinator:
                 )
                 return 0
             # After grace period, abort and log error
-            _LOGGER.debug(
+            _LOGGER.warning(
                 "Active current missing for phase '%s' beyond grace period (%s s). "
                 "Aborting.",
                 phase.value,
