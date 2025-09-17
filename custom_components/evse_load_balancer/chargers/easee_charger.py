@@ -136,9 +136,10 @@ class EaseeCharger(HaDevice, Charger):
         return True
 
     def _get_status(self) -> str | None:
-        return self._get_entity_state_by_translation_key(
-            EaseeEntityMap.Status,
-        )
+        return EaseeStatusMap.Charging
+        # return self._get_entity_state_by_translation_key(
+        #     EaseeEntityMap.Status,
+        # ) TODO(Dirk): Re-enable once we can test with a real charger
 
     def car_connected(self) -> bool:
         """See abstract Charger class for correct implementation of this method."""
@@ -158,6 +159,11 @@ class EaseeCharger(HaDevice, Charger):
             EaseeStatusMap.Charging,
             EaseeStatusMap.ReadyToCharge,
         ]
+
+    def is_charging(self) -> bool:
+        """See abstract Charger class for correct implementation of this method."""
+        status = self._get_status()
+        return status == EaseeStatusMap.Charging
 
     async def async_unload(self) -> None:
         """Unload the Easee charger."""

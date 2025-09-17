@@ -162,5 +162,10 @@ class LektricoCharger(HaDevice, Charger):
             LektricoStatusMap.Charging,
         ]
 
+    def is_charging(self) -> bool:
+        """See abstract Charger class for correct implementation of this method."""
+        status = self._get_status()
+        return status == LektricoStatusMap.Charging
+
     async def async_unload(self) -> None:
         """Unload the Lektri.co charger."""

@@ -41,6 +41,16 @@ class Charger(ABC):
         """Return the unique ID of the charger."""
         return self.config_entry.entry_id
 
+    @property
+    def current_change_settle_time(self) -> int:
+        """
+        Current change settle time.
+
+        Return the time in seconds to wait after a current change
+        before requesting new limits change.
+        """
+        return 15
+
     @abstractmethod
     async def async_setup(self) -> None:
         """Set up charger."""
@@ -89,6 +99,10 @@ class Charger(ABC):
     @abstractmethod
     def can_charge(self) -> bool:
         """Return whether the car is connected and charging or accepting charge."""
+
+    @abstractmethod
+    def is_charging(self) -> bool:
+        """Return whether the car is actively charging."""
 
     @abstractmethod
     async def async_unload(self) -> None:

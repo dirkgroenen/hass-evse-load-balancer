@@ -93,8 +93,6 @@ def test_get_current_limit_success(easee_charger):
 
     # Call the method
     result = easee_charger.get_current_limit()
-
-    # Verify results
     assert result == {Phase.L1: 16, Phase.L2: 16, Phase.L3: 16}
     easee_charger._get_entity_state_by_translation_key.assert_called_once_with(
         EaseeEntityMap.DynamicChargerLimit
@@ -108,8 +106,6 @@ def test_get_current_limit_missing_entity(easee_charger):
 
     # Call the method
     result = easee_charger.get_current_limit()
-
-    # Verify results
     assert result is None
     easee_charger._get_entity_state_by_translation_key.assert_called_once_with(
         EaseeEntityMap.DynamicChargerLimit
@@ -123,8 +119,6 @@ def test_get_max_current_limit_success(easee_charger):
 
     # Call the method
     result = easee_charger.get_max_current_limit()
-
-    # Verify results
     assert result == {Phase.L1: 32, Phase.L2: 32, Phase.L3: 32}
     easee_charger._get_entity_state_by_translation_key.assert_called_once_with(
         EaseeEntityMap.MaxChargerLimit
@@ -138,8 +132,6 @@ def test_get_max_current_limit_missing_entity(easee_charger):
 
     # Call the method
     result = easee_charger.get_max_current_limit()
-
-    # Verify results
     assert result is None
     easee_charger._get_entity_state_by_translation_key.assert_called_once_with(
         EaseeEntityMap.MaxChargerLimit
@@ -154,13 +146,10 @@ def test_car_connected_true(easee_charger):
         EaseeStatusMap.Completed,
         EaseeStatusMap.ReadyToCharge,
     ]:
-        # Mock the status
         easee_charger._get_entity_state_by_translation_key.return_value = status
 
-        # Call the method
         result = easee_charger.car_connected()
 
-        # Verify results
         assert result is True
 
 
@@ -173,13 +162,10 @@ def test_car_connected_false(easee_charger):
         EaseeStatusMap.DeAuthorization,
         None,  # Test with no status
     ]:
-        # Mock the status
         easee_charger._get_entity_state_by_translation_key.return_value = status
 
-        # Call the method
         result = easee_charger.car_connected()
 
-        # Verify results
         assert result is False
 
 
@@ -190,13 +176,10 @@ def test_can_charge_true(easee_charger):
         EaseeStatusMap.Charging,
         EaseeStatusMap.ReadyToCharge,
     ]:
-        # Mock the status
         easee_charger._get_entity_state_by_translation_key.return_value = status
 
-        # Call the method
         result = easee_charger.can_charge()
 
-        # Verify results
         assert result is True
 
 
@@ -210,13 +193,37 @@ def test_can_charge_false(easee_charger):
         EaseeStatusMap.DeAuthorization,
         None,  # Test with no status
     ]:
-        # Mock the status
         easee_charger._get_entity_state_by_translation_key.return_value = status
 
-        # Call the method
         result = easee_charger.can_charge()
 
-        # Verify results
+        assert result is False
+
+
+def test_is_charging_true(easee_charger):
+    """Test is_charging returns True for valid statuses."""
+    easee_charger._get_entity_state_by_translation_key.return_value = EaseeStatusMap.Charging
+    result = easee_charger.is_charging()
+
+    assert result is True
+
+
+def test_is_charging_false(easee_charger):
+    """Test is_charging returns False for invalid statuses."""
+    for status in [
+        EaseeStatusMap.Disconnected,
+        EaseeStatusMap.Error,
+        EaseeStatusMap.Completed,
+        EaseeStatusMap.AwaitingAuthorization,
+        EaseeStatusMap.DeAuthorization,
+        EaseeStatusMap.AwaitingStart,
+        EaseeStatusMap.ReadyToCharge,
+        None,
+    ]:
+        easee_charger._get_entity_state_by_translation_key.return_value = status
+
+        result = easee_charger.is_charging()
+
         assert result is False
 
 
