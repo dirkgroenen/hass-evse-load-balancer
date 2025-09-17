@@ -166,7 +166,7 @@ def test_car_connected_false(easee_charger):
 
         result = easee_charger.car_connected()
 
-        assert result is False
+        assert result is False, f"Failed for status: {status}"
 
 
 def test_can_charge_true(easee_charger):

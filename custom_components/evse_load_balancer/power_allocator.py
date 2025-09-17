@@ -2,6 +2,7 @@
 
 import logging
 from math import floor
+from time import time
 
 from .chargers.charger import Charger
 from .const import Phase
@@ -43,7 +44,7 @@ class ChargerState:
 
     def detect_manual_override(self) -> None:
         """Detect and take care of manual override implications."""
-        current_setting = self.charger.get_current_limit()
+        current_setting = self.get_current_limit()
 
         if not current_setting:
             return
@@ -80,6 +81,16 @@ class ChargerState:
 
         # Always set active_session
         self._active_session = is_charging
+
+    def get_current_limit(self) -> dict[Phase, int] | None:
+        """Get the current limit of the charger."""
+        if (
+            int(time()) - self.last_update_time
+            < self.charger.current_change_settle_time
+        ):
+            return self.last_applied_current
+
+        return self.charger.get_current_limit()
 
 
 class PowerAllocator:
@@ -172,7 +183,7 @@ class PowerAllocator:
         result = {}
         for charger_id, new_limits in allocated_currents.items():
             state = self._chargers[charger_id]
-            current_setting = state.charger.get_current_limit()
+            current_setting = state.get_current_limit()
 
             if not current_setting:
                 continue
@@ -265,7 +276,7 @@ class PowerAllocator:
 
         # Collect current settings for active chargers
         for charger_id, state in self._active_chargers.items():
-            current_setting = state.charger.get_current_limit()
+            current_setting = state.get_current_limit()
             if not current_setting:
                 continue
 
@@ -283,7 +294,7 @@ class PowerAllocator:
             cut = floor(deficit * proportion)
 
             state = self._chargers[charger_id]
-            current_setting = state.charger.get_current_limit()
+            current_setting = state.get_current_limit()
 
             if charger_id not in result:
                 result[charger_id] = current_setting.copy()
@@ -299,7 +310,7 @@ class PowerAllocator:
 
         # Calculate potential increases for each charger
         for charger_id, state in self._active_chargers.items():
-            current_setting = state.charger.get_current_limit()
+            current_setting = state.get_current_limit()
             if not current_setting or not state.requested_current:
                 continue
 
@@ -320,7 +331,7 @@ class PowerAllocator:
             increase = min(surplus * proportion, potential)
 
             state = self._chargers[charger_id]
-            current_setting = state.charger.get_current_limit()
+            current_setting = state.get_current_limit()
 
             if charger_id not in result:
                 result[charger_id] = current_setting.copy()

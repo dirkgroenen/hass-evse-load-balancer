@@ -223,9 +223,6 @@ class EVSELoadBalancerCoordinator:
         if current_limit is None:
             _LOGGER.warning("Current charger limit unknown. Cannot adjust limit.")
             return
-        if allocation_result is None:
-            _LOGGER.warning("No allocation result for charger. Cannot adjust limit.")
-            return
 
         if allocation_result and self._may_update_charger_settings(
             new_settings=allocation_result,
@@ -258,10 +255,10 @@ class EVSELoadBalancerCoordinator:
         timestamp: int,
     ) -> bool:
         """Check if the charger settings haven't been updated too recently."""
-        if self._last_charger_target_update_time is None:
+        if self._last_charger_update_time is None:
             return True
 
-        last_update_time = self._last_charger_target_update_time
+        last_update_time = self._last_charger_update_time
 
         of_charger_delay_minutes = of.EvseLoadBalancerOptionsFlow.get_option_value(
             self.config_entry, of.OPTION_CHARGE_LIMIT_HYSTERESIS
@@ -309,7 +306,7 @@ class EVSELoadBalancerCoordinator:
         self, new_limits: dict[Phase, int], timestamp: int
     ) -> None:
         _LOGGER.debug("New charger settings: %s", new_limits)
-        self._last_charger_target_update_time = timestamp
+        self._last_charger_update_time = timestamp
         self._emit_charger_event(EVENT_ACTION_NEW_CHARGER_LIMITS, new_limits)
         self.hass.async_create_task(self._charger.set_current_limit(new_limits))
 
