@@ -159,5 +159,10 @@ class EaseeCharger(HaDevice, Charger):
             EaseeStatusMap.ReadyToCharge,
         ]
 
+    def is_charging(self) -> bool:
+        """See abstract Charger class for correct implementation of this method."""
+        status = self._get_status()
+        return status == EaseeStatusMap.Charging
+
     async def async_unload(self) -> None:
         """Unload the Easee charger."""

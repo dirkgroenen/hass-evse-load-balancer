@@ -7,7 +7,6 @@ def test_default_init():
     for controller in lb._phase_monitors:
         assert isinstance(lb._phase_monitors[controller], PhaseMonitor)
         # Check that the default values are set correctly.
-        assert lb._phase_monitors[controller]._hold_off_period == 30
         assert lb._phase_monitors[controller]._trip_risk_threshold == 60
         assert lb._phase_monitors[controller]._risk_decay_per_second == 1.0
         assert lb._phase_monitors[controller].max_limit == 25
@@ -48,7 +47,7 @@ def test_stable_recovery_triggers_increase():
     lb = OptimisedLoadBalancer(max_limits=dict.fromkeys(Phase, 25))
     # Setup a scenario where recovery is stable and enough time has elapsed.
     available_currents = {phase: 5 for phase in Phase}
-    now = 100  # elapsed (100 seconds) > hold_off_period (30 seconds)
+    now = 100  # elapsed (100 seconds)
     new_limits = lb.compute_availability(available_currents, now)
     for phase in Phase:
         assert new_limits[phase] == 5

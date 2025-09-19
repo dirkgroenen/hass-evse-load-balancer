@@ -5,6 +5,7 @@ from custom_components.evse_load_balancer.power_allocator import ChargerState, P
 from custom_components.evse_load_balancer.const import Phase
 from .helpers.mock_charger import MockCharger
 from datetime import datetime
+from time import time
 
 
 @pytest.fixture
@@ -39,6 +40,35 @@ def test_initialize(power_allocator: PowerAllocator):
         Phase.L1: 10, Phase.L2: 10, Phase.L3: 10
     }
     assert power_allocator._chargers["charger1"].last_applied_current == {
+        Phase.L1: 10, Phase.L2: 10, Phase.L3: 10
+    }
+
+
+def test_get_current_limit(power_allocator: PowerAllocator):
+    """Test get_current_limit method."""
+    # Create a real mock charger with initial current of 10A
+    mock_charger = MockCharger(initial_current=10, charger_id="charger1")
+
+    power_allocator.add_charger_and_initialize(mock_charger)
+
+    state: ChargerState = power_allocator._chargers["charger1"]
+    state.last_applied_current = {Phase.L1: 10, Phase.L2: 10, Phase.L3: 10}
+    state.last_update_time = int(time())
+
+    assert state.get_current_limit() == {
+        Phase.L1: 10, Phase.L2: 10, Phase.L3: 10
+    }
+
+    state.last_applied_current = {Phase.L1: 5, Phase.L2: 5, Phase.L3: 5}
+    state.last_update_time = int(time())
+
+    assert state.get_current_limit() == {
+        Phase.L1: 5, Phase.L2: 5, Phase.L3: 5
+    }
+
+    state.last_update_time = int(time()) - 30  # simulate delay
+
+    assert state.get_current_limit() == {
         Phase.L1: 10, Phase.L2: 10, Phase.L3: 10
     }
 
@@ -205,7 +235,7 @@ def test_manual_override_detection(power_allocator: PowerAllocator):
     power_allocator.update_applied_current(
         "charger1",
         dict.fromkeys(Phase, 10),
-        timestamp=datetime.now().timestamp()
+        timestamp=(time() - 30)  # make sure we pass a timestamp
     )
 
     # Simulate manual override by changing the limits outside the allocator
@@ -443,7 +473,7 @@ def test_single_phase_manual_override_detection(power_allocator: PowerAllocator)
     power_allocator.update_applied_current(
         "charger1",
         {Phase.L1: 12, Phase.L2: 12, Phase.L3: 12},
-        timestamp=int(datetime.now().timestamp())
+        timestamp=int(time() - 30)   # make sure to pass the settle time
     )
 
     # Now simulate user manually changing the charger to different values

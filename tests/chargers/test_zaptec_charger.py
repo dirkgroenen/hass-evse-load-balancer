@@ -226,6 +226,7 @@ def test_can_charge_true(zaptec_charger):
     """Test can_charge returns True for valid statuses when car is connected."""
     for status in [
         ZaptecStatusMap.ConnectedCharging,
+        ZaptecStatusMap.ConnectedRequesting,
     ]:
         # Reset the mock
         zaptec_charger._get_entity_state_by_translation_key.reset_mock()
@@ -270,6 +271,28 @@ def test_can_charge_false(zaptec_charger):
     result = zaptec_charger.can_charge()
 
     # Verify results
+    assert result is False
+
+
+def test_is_charging_true(zaptec_charger):
+    """Test is_charging returns True for valid statuses when car is connected."""
+    zaptec_charger._get_entity_state_by_translation_key.reset_mock()
+
+    zaptec_charger._get_entity_state_by_translation_key.return_value = ZaptecStatusMap.ConnectedCharging
+
+    result = zaptec_charger.is_charging()
+
+    assert result is True
+
+
+def test_is_charging_false(zaptec_charger):
+    """Test is_charging returns False for invalid statuses or when car is not connected."""
+    zaptec_charger._get_entity_state_by_translation_key.reset_mock()
+
+    zaptec_charger._get_entity_state_by_translation_key.return_value = ZaptecStatusMap.ConnectedRequesting
+
+    result = zaptec_charger.is_charging()
+
     assert result is False
 
 

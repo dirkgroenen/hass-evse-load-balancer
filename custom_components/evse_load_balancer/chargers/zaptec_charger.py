@@ -141,7 +141,6 @@ class ZaptecCharger(HaDevice, Charger):
 
     def car_connected(self) -> bool:
         """Check if a car is connected to the charger."""
-        # Fall back to status-based detection
         status = self._get_status()
         return status in (
             ZaptecStatusMap.ConnectedRequesting,
@@ -151,13 +150,16 @@ class ZaptecCharger(HaDevice, Charger):
 
     def can_charge(self) -> bool:
         """Check if the charger is in a state where it can charge."""
-        # First check if car is connected
-        if not self.car_connected():
-            return False
-
-        # Then check status to see if it's in a state where charging is possible
         status = self._get_status()
-        return status in (ZaptecStatusMap.ConnectedCharging,)
+        return status in (
+            ZaptecStatusMap.ConnectedCharging,
+            ZaptecStatusMap.ConnectedRequesting,
+        )
+
+    def is_charging(self) -> bool:
+        """Check if the charger is charging."""
+        status = self._get_status()
+        return status == ZaptecStatusMap.ConnectedCharging
 
     async def async_unload(self) -> None:
         """Unload the charger."""
