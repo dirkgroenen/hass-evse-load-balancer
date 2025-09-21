@@ -22,8 +22,8 @@ class OcppEntityMap:
     """
 
     # Status entities from HAChargerStatuses
-    Status = "Status"
-    StatusConnector = "Status.Connector"
+    Status = "status"
+    StatusConnector = "status_connector"
 
     # Current limit via number metric
     # https://github.com/lbbrhzn/ocpp/blob/main/custom_components/ocpp/number.py
