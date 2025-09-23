@@ -70,6 +70,14 @@ class OcppCharger(HaDevice, Charger):
     async def async_setup(self) -> None:
         """Set up the charger."""
 
+    def is_charging(self) -> bool:
+        """
+        True wanneer de OCPP-status 'Charging' is.
+        (Gebruik enkel de échte laadstatus; 'Preparing' of 'Suspended*' worden NIET als laden geteld.)
+        """
+        status = self._get_status()
+        return status == OcppStatusMap.Charging
+
     def set_phase_mode(self, mode: PhaseMode, _phase: Phase | None = None) -> None:
         """Set the phase mode of the charger."""
         if mode not in PhaseMode:
@@ -179,6 +187,7 @@ class OcppCharger(HaDevice, Charger):
             OcppStatusMap.SuspendedEV,
             OcppStatusMap.Finishing,
         ]
+        return status in connected_statuses
 
     def can_charge(self) -> bool:
         """Return whether the car is connected and charging or accepting charge."""
