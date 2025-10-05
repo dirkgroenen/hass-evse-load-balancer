@@ -72,8 +72,8 @@ class OcppCharger(HaDevice, Charger):
 
     def is_charging(self) -> bool:
         """
-        True wanneer de OCPP-status 'Charging' is.
-        (Gebruik enkel de échte laadstatus; 'Preparing' of 'Suspended*' worden NIET als laden geteld.)
+        True when the OCPP status is 'Charging'.
+        (Only the actual charging state is counted; 'Preparing' or any 'Suspended*' states are NOT considered charging.)
         """
         status = self._get_status()
         return status == OcppStatusMap.Charging
@@ -92,31 +92,39 @@ class OcppCharger(HaDevice, Charger):
 
     async def set_current_limit(self, limit: dict[Phase, int]) -> None:
         """
-        Set the current limit for the charger.
+        Set the current limit of the charger using the number.set_value service.
 
-        Uses the OCPP set_charge_rate service. As OCPP may not support per-phase
-        limits, we apply the minimum value across phases.
+        Uses the minimum value across all phases, since many chargers
+        do not support per-phase limits.
         """
         min_current = min(limit.values())
+
+        # Build the entity_id for the "Maximum current" number entity
+        entity_id = f"number.{self._get_ocpp_devid()}_maximum_current"
+
         service_data = {
-            "devid": self._get_ocpp_devid(),
-            "limit_amps": min_current,
+            "entity_id": entity_id,
+            "value": min_current,
         }
 
         try:
             await self.hass.services.async_call(
-                domain=CHARGER_DOMAIN_OCPP,
-                service="set_charge_rate",
+                domain="number",
+                service="set_value",
                 service_data=service_data,
                 blocking=True,
             )
+            _LOGGER.debug(
+                "Set current limit for charger %s to %s A via number.set_value",
+                self.device_entry.id,
+                min_current,
+            )
         except Exception as e:
             _LOGGER.warning(
-                "Failed to set current limit for OCPP charger %s: %s",
+                "Failed to set current limit for charger %s: %s",
                 self.device_entry.id,
                 e,
             )
-
 
     def get_current_limit(self) -> dict[Phase, int] | None:
         """Get the current limit of the charger in amps."""
