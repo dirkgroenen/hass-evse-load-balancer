@@ -86,13 +86,6 @@ class OcppCharger(HaDevice, Charger):
         if mode not in PhaseMode:
             raise ValueError("Invalid mode. Must be 'single' or 'multi'.")
 
-    def _get_ocpp_devid(self) -> str:
-        """Extract OCPP charge point identity (devid) from device identifiers."""
-        for id_domain, ident in self.device_entry.identifiers:
-            if id_domain == CHARGER_DOMAIN_OCPP:
-                return ident
-        return getattr(self.device_entry, "name", None) or self.device_entry.id
-
     async def set_current_limit(self, limit: dict[Phase, int]) -> None:
         """
         Set the current limit of the charger using the number.set_value service.
