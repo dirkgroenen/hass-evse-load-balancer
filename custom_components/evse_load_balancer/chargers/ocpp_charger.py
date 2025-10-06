@@ -88,36 +88,41 @@ class OcppCharger(HaDevice, Charger):
 
     async def set_current_limit(self, limit: dict[Phase, int]) -> None:
         """
-        Set the current limit of the charger using the number.set_value service.
+        Set the current limit for the charger.
 
-        Uses the minimum value across all phases, since many chargers
-        do not support per-phase limits.
+        OCPP chargers typically support setting current limits through
+        the set_charge_rate service or smart charging profiles.
+        As OCPP may not support per-phase limits, we'll use the minimum value.
         """
         min_current = min(limit.values())
 
-        # Build the entity_id for the "Maximum current" number entity
-        entity_id = f"number.{self._get_ocpp_devid()}_maximum_current"
-
-        service_data = {
-            "entity_id": entity_id,
-            "value": min_current,
-        }
+        transaction_id = self._get_entity_id_by_key(OcppEntityMap.TransactionId)
 
         try:
             await self.hass.services.async_call(
-                domain="number",
-                service="set_value",
-                service_data=service_data,
+                domain=CHARGER_DOMAIN_OCPP,
+                service="set_charge_rate",
+                service_data={
+                    "custom_profile": {
+                        "transactionId": transaction_id,
+                        "chargingProfileId": 1,
+                        "stackLevel": 0,
+                        "chargingProfilePurpose": "ChargePointMaxProfile",
+                        "chargingProfileKind": "Relative",
+                        "chargingSchedule": {
+                            "chargingRateUnit": "A",
+                            "chargingSchedulePeriod": [
+                                {"startPeriod": 0, "limit": min_current}
+                            ]
+                        }
+                    },
+                    "conn_id": 1
+                },
                 blocking=True,
             )
-            _LOGGER.debug(
-                "Set current limit for charger %s to %s A via number.set_value",
-                self.device_entry.id,
-                min_current,
-            )
-        except Exception as e:
+        except (ValueError, RuntimeError, TimeoutError) as e:
             _LOGGER.warning(
-                "Failed to set current limit for charger %s: %s",
+                "Failed to set current limit for OCPP charger %s: %s",
                 self.device_entry.id,
                 e,
             )
