@@ -29,6 +29,9 @@ class OcppEntityMap:
     # https://github.com/lbbrhzn/ocpp/blob/main/custom_components/ocpp/number.py
     MaximumCurrent = "maximum_current"
 
+    # The active transaction id
+    TransactionId = "transaction_id"
+
 
 class OcppStatusMap:
     """
