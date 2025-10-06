@@ -17,11 +17,6 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-from homeassistant.helpers import entity_registry as er
-import re
-
-def _normalize(s: str) -> str:
-    return re.sub(r'[^a-z0-9]', '', (s or '').lower())
 
 class HaDevice:
     """Base class for HA devices."""
@@ -73,70 +68,25 @@ class HaDevice:
             )
         return entity.entity_id
 
-    def _get_entity_id_by_key(self, entity_key: str) -> str:
-        wanted = _normalize(entity_key)
-        ent_reg = er.async_get(self.hass)  # echte entity registry van HA
+    def _get_entity_id_by_key(self, entity_key: str) -> float | None:
+        """
+        Get the entity ID for a given key.
 
-        for entity_id, entry in ent_reg.entities.items():
-            if entry.device_id != self.device_entry.id:
-                continue
-
-            candidates = [
-                entry.unique_id or "",
-                entry.original_name or "",
-                entity_id.split(".")[-1],
-            ]
-
-            for c in candidates:
-                if _normalize(c).endswith(wanted):
-                    return entity_id
-
-        # fallback: check met "_" in plaats van "."
-        wanted_alt = _normalize(entity_key.replace(".", "_"))
-        if wanted_alt != wanted:
-            for entity_id, entry in ent_reg.entities.items():
-                if entry.device_id != self.device_entry.id:
-                    continue
-
-                for c in [
-                    entry.unique_id or "",
-                    entry.original_name or "",
-                    entity_id.split(".")[-1],
-                ]:
-                    if _normalize(c).endswith(wanted_alt):
-                        return entity_id
-
-        raise ValueError(f"Entity with unique_id ending with '{entity_key}' not found")
-
-
-        def _get_entity_id_by_key(self, entity_key: str) -> str:
-            # bv "Status.Connector" -> "statusconnector"
-            wanted = _normalize(entity_key)
-
-            for entity_id, ent in self._entities_by_id.items():
-                candidates = [
-                    getattr(ent, "unique_id", "") or "",
-                    getattr(ent, "original_name", "") or "",
-                    entity_id.split(".")[-1],  # entity_id suffix
-                ]
-                for c in candidates:
-                    if _normalize(c).endswith(wanted):
-                        return entity_id
-
-            # probeer ook met '.'->'_' (Status.Connector -> status_connector)
-            wanted_alt = _normalize(entity_key.replace(".", "_"))
-            if wanted_alt != wanted:
-                for entity_id, ent in self._entities_by_id.items():
-                    for c in [
-                        getattr(ent, "unique_id", "") or "",
-                        getattr(ent, "original_name", "") or "",
-                        entity_id.split(".")[-1],
-                    ]:
-                        if _normalize(c).endswith(wanted_alt):
-                            return entity_id
-
-            raise ValueError(f"Entity with unique_id ending with '{entity_key}' not found")
-
+        Looks up the entity by checking all entities associated with the device
+        whose unique_id end with the provided key.
+        """
+        entity: RegistryEntry | None = next(
+            (e for e in self.entities if e.unique_id.endswith(f"_{entity_key}")),
+            None,
+        )
+        if entity is None:
+            msg = f"Entity with unique_id ending with '{entity_key}' not found"
+            raise ValueError(msg)
+        if entity.disabled:
+            _LOGGER.error(
+                "Required entity %s is disabled. Please enable it!", entity.entity_id
+            )
+        return entity.entity_id
 
     def _get_entity_state(
         self, entity_id: str, parser_fn: Callable | None = None
