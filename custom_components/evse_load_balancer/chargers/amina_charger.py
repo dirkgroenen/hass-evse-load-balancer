@@ -136,36 +136,55 @@ class AminaCharger(Zigbee2Mqtt, Charger):
 
         # First ensure device is ON, then set the charge limit
         try:
-            self._LOGGER.debug(
-                "AminaCharger: publishing ON (requested=%s)",
-                requested_current,
-            )
-            await self._async_mqtt_publish(
-                topic=self._topic_set, payload={AminaPropertyMap.State: "ON"}
-            )
+            if not self.can_charge():
+                self._LOGGER.info(
+                    "AminaCharger: can_charge() is False; skipping enable "
+                    "until EV is ready"
+                )
+                return
 
-            # wait briefly for device to report state=ON in the cache
+            max_retries = 3
+            poll = 0.5
             ack = False
-            total_wait = 2.0
-            poll = 0.25
-            waited = 0.0
-            while waited < total_wait:
-                if self._state_cache.get(AminaPropertyMap.State) == "ON":
-                    ack = True
-                    break
-                await asyncio.sleep(poll)
-                waited += poll
 
-            if not ack:
+            for attempt in range(1, max_retries + 1):
                 self._LOGGER.debug(
-                    "AminaCharger: no ON ack after %.1fs, proceeding to set limit",
-                    total_wait,
+                    "AminaCharger: publishing ON (attempt %s/%s, requested=%s)",
+                    attempt,
+                    max_retries,
+                    requested_current,
+                )
+                await self._async_mqtt_publish(
+                    topic=self._topic_set, payload={AminaPropertyMap.State: "ON"}
                 )
 
+                # wait briefly for device to report state=ON in the cache
+                waited = 0.0
+                total_wait = poll
+                while waited < total_wait:
+                    if self._state_cache.get(AminaPropertyMap.State) == "ON":
+                        ack = True
+                        break
+                    await asyncio.sleep(0.1)
+                    waited += 0.1
+
+                if ack:
+                    self._LOGGER.debug("AminaCharger: ON acknowledged by device")
+                    break
+
+            if not ack:
+                self._LOGGER.warning(
+                    "AminaCharger: no ON ack after %s attempts; will still set "
+                    "charge limit (best-effort)",
+                    max_retries,
+                )
+
+            # Publish the charge limit regardless of ack (best-effort)
             await self._async_mqtt_publish(
                 topic=self._topic_set,
                 payload={AminaPropertyMap.ChargeLimit: current_value},
             )
+
         except Exception:
             self._LOGGER.exception(
                 "AminaCharger: exception while setting current limit"
