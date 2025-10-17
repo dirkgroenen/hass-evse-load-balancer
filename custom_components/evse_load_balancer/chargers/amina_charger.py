@@ -1,5 +1,7 @@
 """Amina Charger implementation using direct MQTT communication."""
 
+import asyncio
+import logging
 from enum import StrEnum, unique
 from typing import Self
 
@@ -32,13 +34,14 @@ class AminaPropertyMap(StrEnum):
     EvConnected = "ev_connected"
     EvStatus = "ev_status"
     Charging = "charging"
+    State = "state"
 
-    def gettable() -> set[Self]:
+    def gettable() -> list[Self]:
         """Define properties that can be fetched via a /get request."""
-        return (
+        return [
             AminaPropertyMap.ChargeLimit,
             AminaPropertyMap.SinglePhase,
-        )
+        ]
 
 
 @unique
@@ -60,6 +63,8 @@ AMINA_HW_MIN_CURRENT = 6
 
 class AminaCharger(Zigbee2Mqtt, Charger):
     """Representation of an Amina S Charger using MQTT."""
+
+    _LOGGER = logging.getLogger(__name__)
 
     def __init__(
         self,
@@ -106,11 +111,65 @@ class AminaCharger(Zigbee2Mqtt, Charger):
         )
 
     async def set_current_limit(self, limit: dict[Phase, int]) -> None:
-        """Set the charger limit."""
-        current_value = min(*limit.values(), AMINA_HW_MAX_CURRENT)
-        await self._async_mqtt_publish(
-            topic=self._topic_set, payload={AminaPropertyMap.ChargeLimit: current_value}
-        )
+        """Set the charger limit and manage ON/OFF around the 6A hardware clamp."""
+        requested_current = max(limit.values()) if limit else 0
+
+        # Pause path: explicitly turn the charger OFF when we request below HW min
+        if requested_current < AMINA_HW_MIN_CURRENT:
+            self._LOGGER.info(
+                "AminaCharger: requested %sA < %sA, sending OFF + charge_limit=%s",
+                requested_current,
+                AMINA_HW_MIN_CURRENT,
+                AMINA_HW_MIN_CURRENT,
+            )
+            await self._async_mqtt_publish(
+                topic=self._topic_set,
+                payload={
+                    AminaPropertyMap.State: "OFF",
+                    AminaPropertyMap.ChargeLimit: AMINA_HW_MIN_CURRENT,
+                },
+            )
+            return
+
+        # Enable path: request >= AMINA_HW_MIN_CURRENT
+        current_value = min(requested_current, AMINA_HW_MAX_CURRENT)
+
+        # First ensure device is ON, then set the charge limit
+        try:
+            self._LOGGER.debug(
+                "AminaCharger: publishing ON (requested=%s)",
+                requested_current,
+            )
+            await self._async_mqtt_publish(
+                topic=self._topic_set, payload={AminaPropertyMap.State: "ON"}
+            )
+
+            # wait briefly for device to report state=ON in the cache
+            ack = False
+            total_wait = 2.0
+            poll = 0.25
+            waited = 0.0
+            while waited < total_wait:
+                if self._state_cache.get(AminaPropertyMap.State) == "ON":
+                    ack = True
+                    break
+                await asyncio.sleep(poll)
+                waited += poll
+
+            if not ack:
+                self._LOGGER.debug(
+                    "AminaCharger: no ON ack after %.1fs, proceeding to set limit",
+                    total_wait,
+                )
+
+            await self._async_mqtt_publish(
+                topic=self._topic_set,
+                payload={AminaPropertyMap.ChargeLimit: current_value},
+            )
+        except Exception:
+            self._LOGGER.exception(
+                "AminaCharger: exception while setting current limit"
+            )
 
     def get_current_limit(self) -> dict[Phase, int] | None:
         """Get the current charger limit in amps from internal cache."""
