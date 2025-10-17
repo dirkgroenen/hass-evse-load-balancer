@@ -136,10 +136,20 @@ class AminaCharger(Zigbee2Mqtt, Charger):
 
         # First ensure device is ON, then set the charge limit
         try:
-            if not self.can_charge():
+            # Some EVs/firmware report ev_status (ready_to_charge) late.
+            # Only skip enabling if the car is not connected at all.
+            car_conn = self.car_connected()
+            ev_status = self._state_cache.get(AminaPropertyMap.EvStatus)
+            self._LOGGER.debug(
+                "AminaCharger: car_connected=%s ev_status=%s requested=%s",
+                car_conn,
+                ev_status,
+                requested_current,
+            )
+            if not car_conn:
                 self._LOGGER.info(
-                    "AminaCharger: can_charge() is False; skipping enable "
-                    "until EV is ready"
+                    "AminaCharger: car not connected; skipping enable "
+                    "until car connects"
                 )
                 return
 
