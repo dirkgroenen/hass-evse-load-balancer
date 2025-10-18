@@ -9,6 +9,10 @@ from .const import Phase
 
 _LOGGER = logging.getLogger(__name__)
 
+# Amina hardware constants used to detect chargers that clamp small limits
+AMINA_HW_MAX_CURRENT = 32
+AMINA_HW_MIN_CURRENT = 6
+
 
 class ChargerState:
     """Tracks internal allocation state for a single charger."""
@@ -264,6 +268,24 @@ class PowerAllocator:
                 else:
                     # If no phases were processed, keep the original values
                     pass
+
+        # Special-case handling for chargers with hardware minimums (e.g. Amina)
+        # If a charger would receive a small non-zero allocation below its
+        # hardware minimum, convert that to 0 to avoid the device clamping
+        # the requested value and creating oscillation between OFF/ON states.
+        for charger_id, limits in list(result.items()):
+            state = self._chargers[charger_id]
+            max_limits = state.charger.get_max_current_limit()
+            # If charger exposes a max limit and it's the Amina max in our
+            # codebase we can assume the charger clamps small values.
+            if (
+                max_limits
+                and any(v == AMINA_HW_MAX_CURRENT for v in max_limits.values())
+            ):
+                # Convert any small non-zero minimum to 0 to pause cleanly.
+                min_val = min(limits.values())
+                if 0 < min_val < AMINA_HW_MIN_CURRENT:
+                    result[charger_id] = dict.fromkeys(Phase, 0)
 
         return result
 

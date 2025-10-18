@@ -111,8 +111,14 @@ class AminaCharger(Zigbee2Mqtt, Charger):
         )
 
     async def set_current_limit(self, limit: dict[Phase, int]) -> None:
-        """Set the charger limit and manage ON/OFF around the 6A hardware clamp."""
-        requested_current = max(limit.values()) if limit else 0
+        """
+        Set the charger limit and manage ON/OFF around the 6A hardware clamp.
+
+        For synced chargers like Amina, use the minimum across phases
+        (the charger applies the same limit to all phases). Tests and
+        behavior expect the smallest per-phase requested value to be used.
+        """
+        requested_current = min(limit.values()) if limit else 0
 
         # Pause path: explicitly turn the charger OFF when we request below HW min
         if requested_current < AMINA_HW_MIN_CURRENT:
@@ -147,9 +153,17 @@ class AminaCharger(Zigbee2Mqtt, Charger):
                 requested_current,
             )
             if not car_conn:
-                self._LOGGER.info(
-                    "AminaCharger: car not connected; skipping enable "
-                    "until car connects"
+                # If the car is not connected, we cannot reliably enable the
+                # charger (State=ON) but we can still set the desired
+                # ChargeLimit so the value is ready when the car connects.
+                self._LOGGER.debug(
+                    "AminaCharger: car not connected; publishing ChargeLimit only "
+                    "(requested=%s)",
+                    requested_current,
+                )
+                await self._async_mqtt_publish(
+                    topic=self._topic_set,
+                    payload={AminaPropertyMap.ChargeLimit: current_value},
                 )
                 return
 
@@ -189,11 +203,22 @@ class AminaCharger(Zigbee2Mqtt, Charger):
                     max_retries,
                 )
 
-            # Publish the charge limit regardless of ack (best-effort)
-            await self._async_mqtt_publish(
-                topic=self._topic_set,
-                payload={AminaPropertyMap.ChargeLimit: current_value},
-            )
+            # Publish the charge limit regardless of ack (best-effort).
+            # Repeat a couple of times because some firmware ignores the first
+            # ChargeLimit message if it doesn't arrive right after State=ON.
+            repeats = 3
+            for i in range(repeats):
+                self._LOGGER.debug(
+                    "AminaCharger: publishing ChargeLimit=%s (repeat %s/%s)",
+                    current_value,
+                    i + 1,
+                    repeats,
+                )
+                await self._async_mqtt_publish(
+                    topic=self._topic_set,
+                    payload={AminaPropertyMap.ChargeLimit: current_value},
+                )
+                await asyncio.sleep(0.15)
 
         except Exception:
             self._LOGGER.exception(
