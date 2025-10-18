@@ -241,6 +241,13 @@ class PowerAllocator:
             "Updated applied current for charger %s: %s", charger_id, applied_current
         )
 
+    def get_last_applied_current(self, charger_id: str) -> dict[Phase, int] | None:
+        """Return the last applied current for a charger if known."""
+        state = self._chargers.get(charger_id)
+        if not state:
+            return None
+        return state.last_applied_current
+
     def _allocate_current(
         self, available_currents: dict[Phase, int]
     ) -> dict[str, dict[Phase, int]]:

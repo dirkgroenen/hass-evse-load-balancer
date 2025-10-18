@@ -267,9 +267,22 @@ class EVSELoadBalancerCoordinator:
         # Special-case: if the charger is currently paused (all zeros) and
         # we are trying to re-enable it (new_settings > 0) while the charger
         # reports it can charge, allow immediate update so we can send ON.
-        if all(current_limits[p] == 0 for p in current_limits) and any(
-            new_settings[p] > 0 for p in new_settings
-        ) and self._charger.can_charge():
+        # First check if the current_limits are all zeros (charger reports paused)
+        # or if we previously applied a pause ourselves (allocator last applied).
+        applied_paused = False
+        # Only treat the allocator's last applied as a pause if it's a dict
+        # This avoids treating MagicMock returns in unit tests as a paused state.
+        last_applied = getattr(
+            self._power_allocator, "get_last_applied_current", lambda _id: None
+        )(self._charger.id)
+        if isinstance(last_applied, dict):
+            applied_paused = all(v == 0 for v in last_applied.values())
+
+        if (
+            (all(current_limits[p] == 0 for p in current_limits) or applied_paused)
+            and any(new_settings[p] > 0 for p in new_settings)
+            and self._charger.can_charge()
+        ):
             _LOGGER.debug(
                 "Charger was paused and is now charge-capable; "
                 "allowing immediate re-enable"
