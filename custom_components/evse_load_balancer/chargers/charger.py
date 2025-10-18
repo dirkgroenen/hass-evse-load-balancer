@@ -51,6 +51,26 @@ class Charger(ABC):
         """
         return 15
 
+    def acknowledge_hardware_override(
+        self,
+        reported_limit: dict[Phase, int] | None,
+        last_applied: dict[Phase, int] | None,
+    ) -> bool:
+        """
+        Return True when a charger reports a hardware-driven change.
+
+        This hook allows a charger implementation to indicate that a
+        reported_limit (from the device) should not be treated as a
+        user-initiated manual override. Implementations may inspect
+        both the reported_limit and the last_applied values.
+
+        Default implementation does not suppress manual-override
+        detection.
+        """
+        _ = reported_limit
+        _ = last_applied
+        return False
+
     @abstractmethod
     async def async_setup(self) -> None:
         """Set up charger."""

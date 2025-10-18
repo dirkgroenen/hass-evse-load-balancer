@@ -10,7 +10,6 @@ from .const import Phase
 _LOGGER = logging.getLogger(__name__)
 
 
-
 class ChargerState:
     """Tracks internal allocation state for a single charger."""
 
@@ -72,13 +71,36 @@ class ChargerState:
                 for phase in current_setting
             )
         ):
-            self.requested_current = dict(current_setting)
-            self.last_applied_current = dict(current_setting)
-            self.manual_override_detected = True
-            _LOGGER.info(
-                "Manual override detected for charger. New requested current: %s",
-                current_setting,
-            )
+            # Allow charger implementations to suppress manual-override
+            # detection for hardware-driven clamps (e.g. Amina clamps
+            # small values to a HW minimum when turned OFF).
+            suppress = False
+            try:
+                suppress = self.charger.acknowledge_hardware_override(
+                    current_setting, self.last_applied_current
+                )
+            except Exception as e:
+                _LOGGER.debug(
+                    "Error while consulting charger for hardware override "
+                    "suppression: %s",
+                    e,
+                    exc_info=True,
+                )
+
+            if not suppress:
+                self.requested_current = dict(current_setting)
+                self.last_applied_current = dict(current_setting)
+                self.manual_override_detected = True
+                _LOGGER.info(
+                    "Manual override detected for charger. New requested current: %s",
+                    current_setting,
+                )
+            else:
+                _LOGGER.debug(
+                    "Suppressed manual-override detection for charger %s "
+                    "(hardware clamp).",
+                    self.charger.id,
+                )
 
         # Always set active_session
         self._active_session = is_charging
@@ -180,9 +202,6 @@ class PowerAllocator:
         # Allocate current based on strategy
         allocated_currents = self._allocate_current(available_currents)
 
-        # No hardware-minimum special-casing here; keep allocation logic
-        # minimal and device-specific handling belongs in charger implementations.
-
         # Create result dictionary for chargers that need updating
         result = {}
         for charger_id, new_limits in allocated_currents.items():
@@ -223,7 +242,6 @@ class PowerAllocator:
         _LOGGER.debug(
             "Updated applied current for charger %s: %s", charger_id, applied_current
         )
-
 
     def _allocate_current(
         self, available_currents: dict[Phase, int]
@@ -269,9 +287,6 @@ class PowerAllocator:
                 else:
                     # If no phases were processed, keep the original values
                     pass
-
-        # No device-specific min-current clamping here; device quirks are handled
-        # at the charger implementation level (e.g. AminaCharger).
 
         return result
 

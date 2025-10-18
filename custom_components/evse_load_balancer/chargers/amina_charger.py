@@ -294,6 +294,42 @@ class AminaCharger(Zigbee2Mqtt, Charger):
         """Return whether the charger has synced phase limits."""
         return True
 
+    def acknowledge_hardware_override(
+        self,
+        reported_limit: dict[Phase, int] | None,
+        last_applied: dict[Phase, int] | None,
+    ) -> bool:
+        """
+        Amina hardware clamp suppression.
+
+        Amina hardware clamps requests below AMINA_HW_MIN_CURRENT to
+        AMINA_HW_MIN_CURRENT when the device is turned OFF.
+
+        If we have recently applied a request below the HW min and the
+        device reports the clamped value while in OFF state, treat this
+        as a hardware-driven clamp and not a user manual override.
+        """
+        if not reported_limit or not last_applied:
+            return False
+
+        # If last applied was below the HW min and device reports the
+        # HW min across phases, consider this a hardware clamp rather
+        # than a manual override.
+        if (
+            all(v == AMINA_HW_MIN_CURRENT for v in reported_limit.values())
+            and any(v < AMINA_HW_MIN_CURRENT for v in last_applied.values())
+        ):
+            # Also ensure the device reports OFF, meaning we asked it to
+            # be OFF due to very small requested current.
+            state_val = self._state_cache.get(AminaPropertyMap.State)
+            if state_val is False:
+                return True
+
+            if isinstance(state_val, str) and str(state_val).upper() == "OFF":
+                return True
+
+        return False
+
     async def async_unload(self) -> None:
         """Unload the Amina charger."""
         await self.async_unload_mqtt()
