@@ -22,13 +22,14 @@ class OcppEntityMap:
     """
 
     # Status entities from HAChargerStatuses
-    Status = "Status"
-    StatusConnector = "Status.Connector"
+    Status = "status"
+    StatusConnector = "status_connector"
 
     # Current limit via number metric
     # https://github.com/lbbrhzn/ocpp/blob/main/custom_components/ocpp/number.py
     MaximumCurrent = "maximum_current"
 
+    # The active transaction id
     TransactionId = "transaction_id"
 
 
@@ -72,13 +73,18 @@ class OcppCharger(HaDevice, Charger):
     async def async_setup(self) -> None:
         """Set up the charger."""
 
+    def is_charging(self) -> bool:
+        """
+        True when the OCPP status is 'Charging'.
+        (Only the actual charging state is counted; 'Preparing' or any 'Suspended*' states are NOT considered charging.)
+        """
+        status = self._get_status()
+        return status == OcppStatusMap.Charging
+
     def set_phase_mode(self, mode: PhaseMode, _phase: Phase | None = None) -> None:
         """Set the phase mode of the charger."""
         if mode not in PhaseMode:
-            msg = "Invalid mode. Must be 'single' or 'multi'."
-            raise ValueError(msg)
-        # Phase mode setting is not currently implemented for OCPP chargers.
-        # This may require using the OCPP configuration or smart charging profiles.
+            raise ValueError("Invalid mode. Must be 'single' or 'multi'.")
 
     async def set_current_limit(self, limit: dict[Phase, int]) -> None:
         """
@@ -169,25 +175,14 @@ class OcppCharger(HaDevice, Charger):
     def _get_status(self) -> str | None:
         """Get the current status of the OCPP charger."""
         # Try connector status first, then general status
-        status = None
-
-        try:
-            status = self._get_entity_state_by_key(
-                OcppEntityMap.StatusConnector,
-            )
-        except ValueError as e:
-            _LOGGER.debug(
-                "Failed to get status for OCPP charger by entity '%s': '%s'",
-                OcppEntityMap.StatusConnector,
-                e,
-            )
-
-        if status is None:
-            status = self._get_entity_state_by_key(
-                OcppEntityMap.Status,
-            )
-
-        return status
+        for key in (OcppEntityMap.StatusConnector, OcppEntityMap.Status):
+            try:
+                val = self._get_entity_state_by_key(key)
+                if val is not None:
+                    return val
+            except ValueError:
+                continue
+        return None
 
     def car_connected(self) -> bool:
         """Car is connected to the charger and ready to receive charge."""
@@ -201,20 +196,16 @@ class OcppCharger(HaDevice, Charger):
             OcppStatusMap.SuspendedEV,
             OcppStatusMap.Finishing,
         ]
-
         return status in connected_statuses
 
     def can_charge(self) -> bool:
         """Return whether the car is connected and charging or accepting charge."""
         status = self._get_status()
-
-        charging_statuses = [
+        return status in [
             OcppStatusMap.Preparing,
             OcppStatusMap.Charging,
             OcppStatusMap.SuspendedEV,
         ]
-
-        return status in charging_statuses
 
     async def async_unload(self) -> None:
         """Unload the OCPP charger."""
