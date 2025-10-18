@@ -264,6 +264,18 @@ class EVSELoadBalancerCoordinator:
             self.config_entry, of.OPTION_CHARGE_LIMIT_HYSTERESIS
         )
 
+        # Special-case: if the charger is currently paused (all zeros) and
+        # we are trying to re-enable it (new_settings > 0) while the charger
+        # reports it can charge, allow immediate update so we can send ON.
+        if all(current_limits[p] == 0 for p in current_limits) and any(
+            new_settings[p] > 0 for p in new_settings
+        ) and self._charger.can_charge():
+            _LOGGER.debug(
+                "Charger was paused and is now charge-capable; "
+                "allowing immediate re-enable"
+            )
+            return True
+
         # For any change a minimum delay is required
         if timestamp - last_update_time <= MIN_CHARGER_UPDATE_DELAY:
             _LOGGER.debug(
