@@ -245,6 +245,26 @@ def test_can_charge_true(ocpp_charger):
         assert result is True
 
 
+def test_can_charge_issuecomment_3373648529(ocpp_charger):
+    """https://github.com/dirkgroenen/hass-evse-load-balancer/pull/67#issuecomment-3373648529"""
+
+    # Mock the status
+    def mock_entity_state(key):
+        if key == OcppEntityMap.Status:
+            return OcppStatusMap.Available
+        if key == OcppEntityMap.StatusConnector:
+            return OcppStatusMap.Charging
+        return None
+
+    ocpp_charger._get_entity_state_by_key.side_effect = mock_entity_state
+
+    # Call the method
+    result = ocpp_charger.can_charge()
+
+    # Verify results
+    assert result is True
+
+
 def test_can_charge_false(ocpp_charger):
     """Test can_charge returns False for invalid statuses."""
     for status in [

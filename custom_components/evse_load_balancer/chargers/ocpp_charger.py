@@ -29,6 +29,8 @@ class OcppEntityMap:
     # https://github.com/lbbrhzn/ocpp/blob/main/custom_components/ocpp/number.py
     MaximumCurrent = "maximum_current"
 
+    TransactionId = "transaction_id"
+
 
 class OcppStatusMap:
     """
@@ -88,13 +90,27 @@ class OcppCharger(HaDevice, Charger):
         """
         min_current = min(limit.values())
 
+        transaction_id = self._get_entity_id_by_key(OcppEntityMap.TransactionId)
+
         try:
             await self.hass.services.async_call(
                 domain=CHARGER_DOMAIN_OCPP,
                 service="set_charge_rate",
                 service_data={
-                    "device_id": self.device_entry.id,
-                    "limit_amps": min_current,
+                    "custom_profile": {
+                        "transactionId": transaction_id,
+                        "chargingProfileId": 1,
+                        "stackLevel": 0,
+                        "chargingProfilePurpose": "ChargePointMaxProfile",
+                        "chargingProfileKind": "Relative",
+                        "chargingSchedule": {
+                            "chargingRateUnit": "A",
+                            "chargingSchedulePeriod": [
+                                {"startPeriod": 0, "limit": min_current}
+                            ]
+                        }
+                    },
+                    "conn_id": 1
                 },
                 blocking=True,
             )
