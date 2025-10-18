@@ -74,17 +74,15 @@ class OcppCharger(HaDevice, Charger):
         """Set up the charger."""
 
     def is_charging(self) -> bool:
-        """
-        True when the OCPP status is 'Charging'.
-        (Only the actual charging state is counted; 'Preparing' or any 'Suspended*' states are NOT considered charging.)
-        """
+        """Get current charging state."""
         status = self._get_status()
         return status == OcppStatusMap.Charging
 
     def set_phase_mode(self, mode: PhaseMode, _phase: Phase | None = None) -> None:
         """Set the phase mode of the charger."""
         if mode not in PhaseMode:
-            raise ValueError("Invalid mode. Must be 'single' or 'multi'.")
+            msg = "Invalid mode. Must be 'single' or 'multi'."
+            raise ValueError(msg)
 
     async def set_current_limit(self, limit: dict[Phase, int]) -> None:
         """
@@ -113,10 +111,10 @@ class OcppCharger(HaDevice, Charger):
                             "chargingRateUnit": "A",
                             "chargingSchedulePeriod": [
                                 {"startPeriod": 0, "limit": min_current}
-                            ]
-                        }
+                            ],
+                        },
                     },
-                    "conn_id": 1
+                    "conn_id": 1,
                 },
                 blocking=True,
             )

@@ -55,8 +55,9 @@ def ocpp_charger(mock_hass, mock_config_entry, mock_device_entry):
             config_entry=mock_config_entry,
             device_entry=mock_device_entry,
         )
-        # Mock the _get_entity_state_by_key method
+
         charger._get_entity_state_by_key = MagicMock()
+        charger._get_entity_id_by_key = MagicMock()
         return charger
 
 
@@ -75,23 +76,38 @@ def test_is_charger_device():
 
 async def test_set_current_limit(ocpp_charger, mock_hass):
     """Test setting current limits on the OCPP charger."""
-    # Setup test data
+    def mock_entity_state(key):
+        if key == OcppEntityMap.TransactionId:
+            return "1A"
+        return None
+
     test_limits = {
         Phase.L1: 16,
         Phase.L2: 14,
         Phase.L3: 15,
     }
 
-    # Call the method
+    ocpp_charger._get_entity_id_by_key.side_effect = mock_entity_state
     await ocpp_charger.set_current_limit(test_limits)
 
-    # Verify service call was made with correct parameters
     mock_hass.services.async_call.assert_called_once_with(
         domain=CHARGER_DOMAIN_OCPP,
         service="set_charge_rate",
         service_data={
-            "device_id": "test_device_id",
-            "limit_amps": 14,  # Should use minimum of the values
+            "custom_profile": {
+                "transactionId": "1A",
+                "chargingProfileId": 1,
+                "stackLevel": 0,
+                "chargingProfilePurpose": "ChargePointMaxProfile",
+                "chargingProfileKind": "Relative",
+                "chargingSchedule": {
+                    "chargingRateUnit": "A",
+                    "chargingSchedulePeriod": [
+                        {"startPeriod": 0, "limit": 14}
+                    ]
+                }
+            },
+            "conn_id": 1
         },
         blocking=True,
     )
@@ -99,20 +115,23 @@ async def test_set_current_limit(ocpp_charger, mock_hass):
 
 async def test_set_current_limit_service_error(ocpp_charger, mock_hass):
     """Test setting current limits when service call fails."""
-    # Setup test data
+    def mock_entity_state(key):
+        if key == OcppEntityMap.TransactionId:
+            return "1A"
+        return None
+
     test_limits = {
         Phase.L1: 16,
         Phase.L2: 14,
         Phase.L3: 15,
     }
 
-    # Mock service call to raise an error
+    ocpp_charger._get_entity_id_by_key.side_effect = mock_entity_state
     mock_hass.services.async_call.side_effect = ValueError("Service error")
 
     # Call the method - should not raise an exception
     await ocpp_charger.set_current_limit(test_limits)
 
-    # Verify service call was attempted
     mock_hass.services.async_call.assert_called_once()
 
 

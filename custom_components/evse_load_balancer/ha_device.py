@@ -29,11 +29,11 @@ class HaDevice:
 
     def refresh_entities(self) -> None:
         """Refresh local list of entity maps for the meter."""
-        self._entities = self._get_entities_for_device()
+        self.entities = self._get_entities_for_device()
 
     def _get_entities_for_device(self) -> None:
         """Get all available entities for the linked HA device."""
-        self.entities = self.entity_registry.entities.get_entries_for_device_id(
+        return self.entity_registry.entities.get_entries_for_device_id(
             self.device_entry.id,
             include_disabled_entities=True,
         )
