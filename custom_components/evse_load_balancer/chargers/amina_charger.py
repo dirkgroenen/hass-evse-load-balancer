@@ -1,12 +1,11 @@
 """Amina Charger implementation using direct MQTT communication."""
 
-import asyncio
 import logging
 from enum import StrEnum, unique
 from typing import Self
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant  # State might not be used directly here
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntry
 
 from ..const import (  # noqa: TID252
@@ -16,18 +15,12 @@ from ..const import (  # noqa: TID252
     Phase,
 )
 from .charger import Charger, PhaseMode
-from .util.zigbee2mqtt import (
-    Zigbee2Mqtt,
-)
+from .util.zigbee2mqtt import Zigbee2Mqtt
 
 
 @unique
 class AminaPropertyMap(StrEnum):
-    """
-    Map Easee properties.
-
-    @see https://www.zigbee2mqtt.io/devices/amina_S.html
-    """
+    """Map Amina charger properties."""
 
     ChargeLimit = "charge_limit"
     SinglePhase = "single_phase"
@@ -46,11 +39,7 @@ class AminaPropertyMap(StrEnum):
 
 @unique
 class AminaStatusMap(StrEnum):
-    """
-    Map Amina charger statuses to their respective string representations.
-
-    @see https://www.zigbee2mqtt.io/devices/amina_S.html#ev-status-text
-    """
+    """Map Amina charger statuses to string representations."""
 
     Charging = "charging"
     ReadyToCharge = "ready_to_charge"
@@ -84,7 +73,7 @@ class AminaCharger(Zigbee2Mqtt, Charger):
 
     @staticmethod
     def is_charger_device(device: DeviceEntry) -> bool:
-        """Check if the given device is an Easee charger."""
+        """Check if the given device is an Amina charger."""
         return any(
             (
                 id_domain == HA_INTEGRATION_DOMAIN_MQTT
@@ -102,10 +91,7 @@ class AminaCharger(Zigbee2Mqtt, Charger):
         self, mode: PhaseMode, _phase: Phase | None = None
     ) -> None:
         """Set the phase mode of the charger."""
-        single_phase = "disable"
-        if mode == PhaseMode.SINGLE:
-            single_phase = "enable"
-
+        single_phase = "enable" if mode == PhaseMode.SINGLE else "disable"
         await self._async_mqtt_publish(
             topic=self._topic_set, payload={AminaPropertyMap.SinglePhase: single_phase}
         )
@@ -139,110 +125,41 @@ class AminaCharger(Zigbee2Mqtt, Charger):
 
         # Enable path: request >= AMINA_HW_MIN_CURRENT
         current_value = min(requested_current, AMINA_HW_MAX_CURRENT)
+        car_conn = self.car_connected()
+        ev_status = self._state_cache.get(AminaPropertyMap.EvStatus)
 
-        # First ensure device is ON, then set the charge limit
-        try:
-            # Some EVs/firmware report ev_status (ready_to_charge) late.
-            # Only skip enabling if the car is not connected at all.
-            car_conn = self.car_connected()
-            ev_status = self._state_cache.get(AminaPropertyMap.EvStatus)
+        self._LOGGER.debug(
+            "AminaCharger: car_connected=%s ev_status=%s requested=%s",
+            car_conn,
+            ev_status,
+            requested_current,
+        )
+
+        if not car_conn:
+            # Car not connected — just publish limit
             self._LOGGER.debug(
-                "AminaCharger: car_connected=%s ev_status=%s requested=%s",
-                car_conn,
-                ev_status,
+                "AminaCharger: car not connected; publishing ChargeLimit only "
+                "(requested=%s)",
                 requested_current,
-            )
-            if not car_conn:
-                # If the car is not connected, we cannot reliably enable the
-                # charger (State=ON) but we can still set the desired
-                # ChargeLimit so the value is ready when the car connects.
-                self._LOGGER.debug(
-                    "AminaCharger: car not connected; publishing ChargeLimit only "
-                    "(requested=%s)",
-                    requested_current,
-                )
-                await self._async_mqtt_publish(
-                    topic=self._topic_set,
-                    payload={AminaPropertyMap.ChargeLimit: current_value},
-                )
-                return
-
-            # Keep retries minimal: most devices accept a single ON request
-            # and will report state change quickly. Excessive retries/publishes
-            # can cause unnecessary MQTT churn.
-            max_retries = 1
-            poll = 0.3
-            ack = False
-
-            for attempt in range(1, max_retries + 1):
-                self._LOGGER.debug(
-                    "AminaCharger: publishing ON (attempt %s/%s, requested=%s)",
-                    attempt,
-                    max_retries,
-                    requested_current,
-                )
-                await self._async_mqtt_publish(
-                    topic=self._topic_set, payload={AminaPropertyMap.State: "ON"}
-                )
-
-                # wait briefly for device to report state=ON in the cache
-                waited = 0.0
-                total_wait = poll
-                while waited < total_wait:
-                    state_val = self._state_cache.get(AminaPropertyMap.State)
-                    # Zigbee2MQTT serializes 'ON'/'OFF' to booleans True/False
-                    # in our state cache. Accept both boolean True and the
-                    # string 'ON' when detecting an acknowledgement.
-                    if (
-                        state_val is True
-                        or (
-                            isinstance(state_val, str)
-                            and str(state_val).upper() == "ON"
-                        )
-                    ):
-                        ack = True
-                        break
-                    await asyncio.sleep(0.1)
-                    waited += 0.1
-
-                if ack:
-                    self._LOGGER.debug("AminaCharger: ON acknowledged by device")
-                    break
-
-            if not ack:
-                # Device did not acknowledge ON in time; continue and set
-                # ChargeLimit as a best-effort. Keep this as INFO so it is
-                # visible but not overly noisy during normal operation.
-                self._LOGGER.info(
-                    "AminaCharger: no ON ack after %s attempt(s); proceeding to "
-                    "set charge limit",
-                    max_retries,
-                )
-
-            # Publish the charge limit regardless of ack (best-effort).
-            # Some devices need a short delay after State=ON before they
-            # accept ChargeLimit updates. Sleep briefly to increase the
-            # chance the device reports state ON in the cache.
-            # Short delay to allow the device to reach ON state
-            await asyncio.sleep(0.2)
-
-            # Single publish of the desired charge limit (most firmware will
-            # accept this once state is ON). Keep a small gap before and
-            # after publish to avoid hammering MQTT.
-            self._LOGGER.debug(
-                "AminaCharger: publishing ChargeLimit=%s",
-                current_value,
             )
             await self._async_mqtt_publish(
                 topic=self._topic_set,
                 payload={AminaPropertyMap.ChargeLimit: current_value},
             )
-            await asyncio.sleep(0.1)
+            return
 
-        except Exception:
-            self._LOGGER.exception(
-                "AminaCharger: exception while setting current limit"
-            )
+        # Car connected — send ON + ChargeLimit
+        self._LOGGER.debug(
+            "AminaCharger: publishing ON and ChargeLimit=%s",
+            current_value,
+        )
+        await self._async_mqtt_publish(
+            topic=self._topic_set,
+            payload={
+                AminaPropertyMap.State: "ON",
+                AminaPropertyMap.ChargeLimit: current_value,
+            },
+        )
 
     def get_current_limit(self) -> dict[Phase, int] | None:
         """Get the current charger limit in amps from internal cache."""
@@ -283,8 +200,7 @@ class AminaCharger(Zigbee2Mqtt, Charger):
         # physically connected but not yet 'ready_to_charge'. Treat a
         # connected vehicle as charge-capable so the coordinator/allocator
         # will continue to monitor and attempt to enable the charger by
-        # sending State=ON. This prevents the situation where the charger
-        # reports state OFF and is therefore excluded from updates.
+        # sending State=ON.
         return (
             ev_status in (AminaStatusMap.Charging, AminaStatusMap.ReadyToCharge)
             or "connected" in ev_status
@@ -312,19 +228,13 @@ class AminaCharger(Zigbee2Mqtt, Charger):
         if not reported_limit or not last_applied:
             return False
 
-        # If last applied was below the HW min and device reports the
-        # HW min across phases, consider this a hardware clamp rather
-        # than a manual override.
         if (
             all(v == AMINA_HW_MIN_CURRENT for v in reported_limit.values())
             and any(v < AMINA_HW_MIN_CURRENT for v in last_applied.values())
         ):
-            # Also ensure the device reports OFF, meaning we asked it to
-            # be OFF due to very small requested current.
             state_val = self._state_cache.get(AminaPropertyMap.State)
             if state_val is False:
                 return True
-
             if isinstance(state_val, str) and str(state_val).upper() == "OFF":
                 return True
 
