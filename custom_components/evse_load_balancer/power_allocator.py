@@ -183,6 +183,23 @@ class PowerAllocator:
         # Allocate current based on strategy
         allocated_currents = self._allocate_current(available_currents)
 
+        # Early special-case handling for chargers with hardware minimums
+        # (e.g. Amina). If a charger would receive a small non-zero
+        # allocation below its hardware minimum, convert that to 0 to
+        # avoid the device clamping the requested value and creating
+        # oscillation between OFF/ON states. Do this immediately on the
+        # allocated_currents so downstream logic sees the corrected values.
+        for charger_id, limits in list(allocated_currents.items()):
+            state = self._chargers[charger_id]
+            max_limits = state.charger.get_max_current_limit()
+            if (
+                max_limits
+                and any(v == AMINA_HW_MAX_CURRENT for v in max_limits.values())
+            ):
+                min_val = min(limits.values())
+                if 0 < min_val < AMINA_HW_MIN_CURRENT:
+                    allocated_currents[charger_id] = dict.fromkeys(Phase, 0)
+
         # Create result dictionary for chargers that need updating
         result = {}
         for charger_id, new_limits in allocated_currents.items():

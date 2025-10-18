@@ -186,7 +186,17 @@ class AminaCharger(Zigbee2Mqtt, Charger):
                 waited = 0.0
                 total_wait = poll
                 while waited < total_wait:
-                    if self._state_cache.get(AminaPropertyMap.State) == "ON":
+                    state_val = self._state_cache.get(AminaPropertyMap.State)
+                    # Zigbee2MQTT serializes 'ON'/'OFF' to booleans True/False
+                    # in our state cache. Accept both boolean True and the
+                    # string 'ON' when detecting an acknowledgement.
+                    if (
+                        state_val is True
+                        or (
+                            isinstance(state_val, str)
+                            and str(state_val).upper() == "ON"
+                        )
+                    ):
                         ack = True
                         break
                     await asyncio.sleep(0.1)
@@ -204,6 +214,11 @@ class AminaCharger(Zigbee2Mqtt, Charger):
                 )
 
             # Publish the charge limit regardless of ack (best-effort).
+            # Some devices need a short delay after State=ON before they
+            # accept ChargeLimit updates. Sleep briefly to increase the
+            # chance the device reports state ON in the cache.
+            await asyncio.sleep(0.25)
+
             # Repeat a couple of times because some firmware ignores the first
             # ChargeLimit message if it doesn't arrive right after State=ON.
             repeats = 3
@@ -260,9 +275,15 @@ class AminaCharger(Zigbee2Mqtt, Charger):
             self._state_cache.get(AminaPropertyMap.EvStatus, "unknown")
         ).lower()
 
-        return ev_status in (
-            AminaStatusMap.Charging,
-            AminaStatusMap.ReadyToCharge,
+        # Some firmware reports 'EV Connected' or similar when the vehicle is
+        # physically connected but not yet 'ready_to_charge'. Treat a
+        # connected vehicle as charge-capable so the coordinator/allocator
+        # will continue to monitor and attempt to enable the charger by
+        # sending State=ON. This prevents the situation where the charger
+        # reports state OFF and is therefore excluded from updates.
+        return (
+            ev_status in (AminaStatusMap.Charging, AminaStatusMap.ReadyToCharge)
+            or "connected" in ev_status
         )
 
     def has_synced_phase_limits(self) -> bool:
