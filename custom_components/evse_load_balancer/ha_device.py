@@ -111,14 +111,15 @@ class HaDevice:
 
         try:
             value = parser_fn(state_value) if parser_fn else state_value
-            self._unavailable_sensors.discard(entity_id)
-            return value
         except ValueError:
             _LOGGER.warning(
                 "State for entity %s can't be parsed: %s", entity_id, state_value
             )
             self._unavailable_sensors.add(entity_id)
             return None
+        else:
+            self._unavailable_sensors.discard(entity_id)
+            return value
 
     def _get_entity_state_attrs(self, entity_id: str) -> dict | None:
         """Get the state attributes for a given entity."""

@@ -97,8 +97,6 @@ class CustomMeter(Meter):
 
         try:
             value = float(state_value)
-            self._unavailable_sensors.discard(entity_id)
-            return value
         except ValueError as ex:
             _LOGGER.exception(
                 "Failed to parse state %s for entity %s: %s",
@@ -108,3 +106,6 @@ class CustomMeter(Meter):
             )
             self._unavailable_sensors.add(entity_id)
             return None
+        else:
+            self._unavailable_sensors.discard(entity_id)
+            return value
