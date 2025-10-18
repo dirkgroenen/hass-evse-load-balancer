@@ -25,6 +25,7 @@ class CustomMeter(Meter):
         """Initialize the Custom Meter instance."""
         Meter.__init__(self, hass, config_entry)
         self._config_entry_data = config_entry.data
+        self._unavailable_sensors: set[str] = set()
 
     def get_active_phase_current(self, phase: Phase) -> int | None:
         """Return available current on a given phase."""
@@ -77,14 +78,27 @@ class CustomMeter(Meter):
                 sensors.extend(self._config_entry_data[phase_cf][cf_sensor])
         return sensors
 
+    def get_unavailable_sensors(self) -> list[str]:
+        """Return a list of currently unavailable sensors."""
+        return list(self._unavailable_sensors)
+
     def _get_state(self, entity_id: str) -> float | None:
         state = self.hass.states.get(entity_id)
         if state is None:
             _LOGGER.debug("State not found for entity %s", entity_id)
+            self._unavailable_sensors.add(entity_id)
             return None
+
         state_value = state.state
+
+        if state_value in ("unavailable", "unknown"):
+            self._unavailable_sensors.add(entity_id)
+            return None
+
         try:
-            return float(state_value)
+            value = float(state_value)
+            self._unavailable_sensors.discard(entity_id)
+            return value
         except ValueError as ex:
             _LOGGER.exception(
                 "Failed to parse state %s for entity %s: %s",
@@ -92,4 +106,5 @@ class CustomMeter(Meter):
                 entity_id,
                 ex,  # noqa: TRY401
             )
+            self._unavailable_sensors.add(entity_id)
             return None

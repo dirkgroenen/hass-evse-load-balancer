@@ -11,6 +11,11 @@ from homeassistant.const import ATTR_DEVICE_ID
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.issue_registry import (
+    IssueSeverity,
+    async_create_issue,
+    async_delete_issue,
+)
 
 from . import config_flow as cf
 from . import options_flow as of
@@ -18,12 +23,15 @@ from .balancers.optimised_load_balancer import OptimisedLoadBalancer
 from .chargers.charger import Charger
 from .const import (
     COORDINATOR_STATE_AWAITING_CHARGER,
+    COORDINATOR_STATE_INITIALIZING,
     COORDINATOR_STATE_MONITORING_LOAD,
     DOMAIN,
     EVENT_ACTION_NEW_CHARGER_LIMITS,
     EVENT_ATTR_ACTION,
     EVENT_ATTR_NEW_LIMITS,
     EVSE_LOAD_BALANCER_COORDINATOR_EVENT,
+    REPAIR_ISSUE_SENSORS_UNAVAILABLE,
+    SENSOR_STARTUP_GRACE_PERIOD,
 )
 from .meters.meter import Meter, Phase
 from .power_allocator import PowerAllocator
@@ -45,6 +53,9 @@ class EVSELoadBalancerCoordinator:
     # MODIFIED: Store as datetime object or None
     _last_check_timestamp: datetime | None = None
     _last_charger_update_time: int | None = None
+    _setup_timestamp: datetime | None = None
+    _unavailable_sensors: set[str] | None = None
+    _repair_issue_created: bool = False
 
     def __init__(
         self,
@@ -61,6 +72,7 @@ class EVSELoadBalancerCoordinator:
 
         self._meter: Meter = meter
         self._charger: Charger = charger
+        self._setup_timestamp = datetime.now().astimezone()
 
     async def async_setup(self) -> None:
         """Set up the coordinator and its managed components."""
@@ -92,6 +104,9 @@ class EVSELoadBalancerCoordinator:
         for unsub_method in self._unsub:
             unsub_method()
         self._unsub.clear()
+
+        # Dismiss any repair issues on unload
+        self._dismiss_sensor_repair_issue()
 
     @cached_property
     def _device(self) -> dr.DeviceEntry:
@@ -155,16 +170,36 @@ class EVSELoadBalancerCoordinator:
     def _get_available_currents(self) -> dict[Phase, int] | None:
         """Check all phases and return the available current for each."""
         available_currents = {}
+        unavailable_phases = []
+
         for phase_obj in self._available_phases:
             current = self.get_available_current_for_phase(phase_obj)
             if current is None:
-                _LOGGER.error(
-                    "Available current for phase '%s' is None."
-                    "Cannot proceed with balancing cycle.",
-                    phase_obj.value,
+                unavailable_phases.append(phase_obj.value)
+            else:
+                available_currents[phase_obj] = current
+
+        if unavailable_phases:
+            unavailable_sensors = self._meter.get_unavailable_sensors()
+
+            if self._is_in_startup_grace_period():
+                _LOGGER.debug(
+                    "Sensors unavailable during startup grace period (phases: %s). "
+                    "Waiting for sensors to initialize...",
+                    ", ".join(unavailable_phases),
                 )
                 return None
-            available_currents[phase_obj] = current
+
+            _LOGGER.warning(
+                "Available current for phases %s is None. "
+                "Cannot proceed with balancing cycle. Unavailable sensors: %s",
+                ", ".join(unavailable_phases),
+                ", ".join(unavailable_sensors) if unavailable_sensors else "unknown",
+            )
+            self._handle_unavailable_sensors(unavailable_sensors)
+            return None
+
+        self._dismiss_sensor_repair_issue()
         return available_currents
 
     @cached_property
@@ -177,6 +212,8 @@ class EVSELoadBalancerCoordinator:
     @property
     def get_load_balancing_state(self) -> str:
         """Get the current load balancing state."""
+        if self._is_in_startup_grace_period():
+            return COORDINATOR_STATE_INITIALIZING
         if self._should_check_charger():
             return COORDINATOR_STATE_MONITORING_LOAD
         return COORDINATOR_STATE_AWAITING_CHARGER
@@ -323,3 +360,43 @@ class EVSELoadBalancerCoordinator:
         _LOGGER.info(
             "Emitted charger event: action=%s, new_limits=%s", action, new_limits
         )
+
+    def _is_in_startup_grace_period(self) -> bool:
+        """Check if we're still in the startup grace period."""
+        if self._setup_timestamp is None:
+            return False
+        elapsed = (datetime.now().astimezone() - self._setup_timestamp).total_seconds()
+        return elapsed < SENSOR_STARTUP_GRACE_PERIOD
+
+    def _handle_unavailable_sensors(self, unavailable_sensors: list[str]) -> None:
+        """Handle unavailable sensors by creating a repair issue."""
+        if self._repair_issue_created:
+            return
+
+        sensor_list = "\n".join(f"- `{sensor}`" for sensor in unavailable_sensors)
+        async_create_issue(
+            self.hass,
+            DOMAIN,
+            REPAIR_ISSUE_SENSORS_UNAVAILABLE,
+            is_fixable=False,
+            severity=IssueSeverity.WARNING,
+            translation_key="sensors_unavailable",
+            translation_placeholders={
+                "sensors": sensor_list,
+                "grace_period": str(SENSOR_STARTUP_GRACE_PERIOD),
+            },
+        )
+        self._repair_issue_created = True
+        _LOGGER.warning(
+            "Created repair issue for unavailable sensors: %s",
+            ", ".join(unavailable_sensors),
+        )
+
+    def _dismiss_sensor_repair_issue(self) -> None:
+        """Dismiss the sensor unavailability repair issue if it exists."""
+        if not self._repair_issue_created:
+            return
+
+        async_delete_issue(self.hass, DOMAIN, REPAIR_ISSUE_SENSORS_UNAVAILABLE)
+        self._repair_issue_created = False
+        _LOGGER.info("Dismissed sensor unavailability repair issue")
