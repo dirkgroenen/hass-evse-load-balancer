@@ -228,9 +228,8 @@ class AminaCharger(Zigbee2Mqtt, Charger):
         if not reported_limit or not last_applied:
             return False
 
-        if (
-            all(v == AMINA_HW_MIN_CURRENT for v in reported_limit.values())
-            and any(v < AMINA_HW_MIN_CURRENT for v in last_applied.values())
+        if all(v == AMINA_HW_MIN_CURRENT for v in reported_limit.values()) and any(
+            v < AMINA_HW_MIN_CURRENT for v in last_applied.values()
         ):
             state_val = self._state_cache.get(AminaPropertyMap.State)
             if state_val is False:
