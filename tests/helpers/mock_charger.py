@@ -28,6 +28,7 @@ class MockCharger(Charger):
         self._synced_phases = synced_phases
         self._is_car_connected = False
         self._can_charge_state = False
+        self._is_charging = False
 
     def is_charger_device(self, device) -> bool:
         """Check if the given device is a mock charger."""
@@ -69,6 +70,10 @@ class MockCharger(Charger):
         """Return whether the car can charge."""
         return self._can_charge_state
 
+    def is_charging(self) -> bool:
+        """Return whether the car is charging."""
+        return self._is_charging
+
     # Test helper methods
     def set_car_connected(self, connected: bool) -> None:
         """Set whether a car is connected for testing."""
@@ -77,6 +82,10 @@ class MockCharger(Charger):
     def set_can_charge(self, can_charge: bool) -> None:
         """Set whether the car can charge for testing."""
         self._can_charge_state = can_charge
+
+    def set_is_charging(self, is_charging: bool) -> None:
+        """Set whether the car is charging."""
+        self._is_charging = is_charging
 
     def set_current_limits(self, limits: Dict[Phase, int]) -> None:
         """Manually set the current limits for testing."""

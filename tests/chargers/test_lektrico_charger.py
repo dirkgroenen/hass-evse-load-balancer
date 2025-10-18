@@ -263,11 +263,8 @@ def test_car_connected_true(lektrico_charger):
     ]:
         # Mock the status
         lektrico_charger._get_entity_state_by_key.return_value = status
-
-        # Call the method
         result = lektrico_charger.car_connected()
 
-        # Verify results
         assert result is True
 
 
@@ -283,11 +280,8 @@ def test_car_connected_false(lektrico_charger):
     ]:
         # Mock the status
         lektrico_charger._get_entity_state_by_key.return_value = status
-
-        # Call the method
         result = lektrico_charger.car_connected()
 
-        # Verify results
         assert result is False
 
 
@@ -299,11 +293,8 @@ def test_can_charge_true(lektrico_charger):
     ]:
         # Mock the status
         lektrico_charger._get_entity_state_by_key.return_value = status
-
-        # Call the method
         result = lektrico_charger.can_charge()
 
-        # Verify results
         assert result is True
 
 
@@ -321,11 +312,34 @@ def test_can_charge_false(lektrico_charger):
     ]:
         # Mock the status
         lektrico_charger._get_entity_state_by_key.return_value = status
-
-        # Call the method
         result = lektrico_charger.can_charge()
 
-        # Verify results
+        assert result is False
+
+
+def test_is_charging_true(lektrico_charger):
+    """Test is_charging returns True for valid statuses."""
+    lektrico_charger._get_entity_state_by_key.return_value = LektricoStatusMap.Charging
+    result = lektrico_charger.is_charging()
+
+    assert result is True
+
+
+def test_is_charging_false(lektrico_charger):
+    """Test is_charging returns False for invalid statuses."""
+    for status in [
+        LektricoStatusMap.Available,
+        LektricoStatusMap.Error,
+        LektricoStatusMap.Locked,
+        LektricoStatusMap.Authentication,
+        LektricoStatusMap.Paused,
+        LektricoStatusMap.PausedByScheduler,
+        LektricoStatusMap.Updating,
+        None,
+    ]:
+        lektrico_charger._get_entity_state_by_key.return_value = status
+        result = lektrico_charger.is_charging()
+
         assert result is False
 
 

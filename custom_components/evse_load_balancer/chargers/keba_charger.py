@@ -142,6 +142,11 @@ class KebaCharger(HaDevice, Charger):
             KebaChargingStateMap.Charging,
         ]
 
+    def is_charging(self) -> bool:
+        """See abstract Charger class for correct implementation of this method."""
+        status = self._get_status()
+        return status == KebaChargingStateMap.Charging
+
     async def async_unload(self) -> None:
         """Unload the charger."""
 

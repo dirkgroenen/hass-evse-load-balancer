@@ -134,6 +134,10 @@ class AminaCharger(Zigbee2Mqtt, Charger):
         """Return whether the car is connected."""
         return bool(self._state_cache.get(AminaPropertyMap.EvConnected, False))
 
+    def is_charging(self) -> bool:
+        """Return whether the car is charging."""
+        return bool(self._state_cache.get(AminaPropertyMap.Charging, False))
+
     def can_charge(self) -> bool:
         """Return if car is connected and accepting charge."""
         if not self.car_connected():
