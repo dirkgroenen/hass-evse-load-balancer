@@ -108,7 +108,7 @@ class AminaCharger(Zigbee2Mqtt, Charger):
 
         # Pause path: explicitly turn the charger OFF when we request below HW min
         if requested_current < AMINA_HW_MIN_CURRENT:
-            self._LOGGER.info(
+            self._LOGGER.debug(
                 "AminaCharger: requested %sA < %sA, sending OFF + charge_limit=%s",
                 requested_current,
                 AMINA_HW_MIN_CURRENT,
