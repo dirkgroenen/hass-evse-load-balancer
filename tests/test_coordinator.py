@@ -1,6 +1,6 @@
 """Tests for the EVSELoadBalancerCoordinator."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -188,7 +188,7 @@ def coordinator(
         )
 
         # Mock needed properties and methods
-        coordinator._last_charger_target_update = None
+        coordinator._last_charger_update_time = None
         coordinator._device = MagicMock()
         coordinator._sensors = [MagicMock(), MagicMock()]
 
@@ -220,7 +220,7 @@ def coordinator_single_phase(
         )
 
         # Mock needed properties and methods
-        coordinator._last_charger_target_update = None
+        coordinator._last_charger_update_time = None
         coordinator._device = MagicMock()
         coordinator._sensors = [MagicMock(), MagicMock()]
 
@@ -247,13 +247,11 @@ def test_charger_allocation(coordinator):
     now = datetime.now()
     coordinator._execute_update_cycle(now)
 
-    # Verify balancer was called with correct parameters
     coordinator._balancer_algo.compute_availability.assert_called_once()
     args = coordinator._balancer_algo.compute_availability.call_args[1]
     assert "available_currents" in args
     assert "now" in args
 
-    # Verify power allocator was called with balancer results
     coordinator._power_allocator.update_allocation.assert_called_once()
     allocation_args = coordinator._power_allocator.update_allocation.call_args[1]
     assert allocation_args["available_currents"] == {
@@ -262,7 +260,6 @@ def test_charger_allocation(coordinator):
         Phase.L3: 5
     }
 
-    # Verify charger was updated with allocation results
     coordinator._charger.set_current_limit.assert_called_once_with({
         Phase.L1: 14,
         Phase.L2: 16,
@@ -284,8 +281,8 @@ def test_no_update_when_available_current_unknown(coordinator):
     coordinator._charger.set_current_limit.assert_not_called()
 
 
-def test_only_update_when_currents_have_changed(coordinator):
-    """Tests that no update happens on the allocator when the currents haven't changed."""
+def test_allocator_always_called_to_check_current_power(coordinator):
+    """Tests that allocator is always called to check current available power."""
     # Execute an update cycle
     coordinator._execute_update_cycle(datetime.now())
 
@@ -299,17 +296,18 @@ def test_only_update_when_currents_have_changed(coordinator):
         Phase.L3: 5
     }
 
-    # Call second time, with same values, verify no update
+    # Call second time, with same values - should still call allocator
+    # (We always check current power, no optimization based on previous values)
     coordinator._execute_update_cycle(datetime.now())
     assert coordinator._balancer_algo.compute_availability.call_count == 2
-    assert coordinator._power_allocator.update_allocation.call_count == 1
+    assert coordinator._power_allocator.update_allocation.call_count == 2
 
     # Mock different values
     coordinator._balancer_algo.compute_availability.return_value = dict.fromkeys(Phase, 2)
 
     coordinator._execute_update_cycle(datetime.now())
     assert coordinator._balancer_algo.compute_availability.call_count == 3
-    assert coordinator._power_allocator.update_allocation.call_count == 2
+    assert coordinator._power_allocator.update_allocation.call_count == 3
     allocation_args = coordinator._power_allocator.update_allocation.call_args[1]
     assert allocation_args["available_currents"] == {
         Phase.L1: 2,
@@ -335,10 +333,7 @@ def test_no_update_when_charger_shouldnt_be_checked(coordinator):
 def test_no_update_too_frequent(coordinator):
     """Test that no update happens when last update was too recent."""
     # Set recent update time
-    coordinator._last_charger_target_update = (
-        {Phase.L1: 10, Phase.L2: 10, Phase.L3: 10},
-        int(datetime.now().timestamp()) - 10,  # 10 seconds ago (less than MIN_CHARGER_UPDATE_DELAY)
-    )
+    coordinator._last_charger_update_time = int(datetime.now().timestamp()) - 10
 
     # Execute update cycle
     coordinator._execute_update_cycle(datetime.now())
@@ -428,20 +423,17 @@ def test_charger_allocation_single_phase(coordinator_single_phase):
     now = datetime.now()
     coordinator_single_phase._execute_update_cycle(now)
 
-    # Verify balancer was called with correct parameters
     coordinator_single_phase._balancer_algo.compute_availability.assert_called_once()
     args = coordinator_single_phase._balancer_algo.compute_availability.call_args[1]
     assert "available_currents" in args
     assert "now" in args
 
-    # Verify power allocator was called with balancer results
     coordinator_single_phase._power_allocator.update_allocation.assert_called_once()
     allocation_args = coordinator_single_phase._power_allocator.update_allocation.call_args[1]
     assert allocation_args["available_currents"] == {
         Phase.L1: -2,
     }
 
-    # Verify charger was updated with allocation results
     coordinator_single_phase._charger.set_current_limit.assert_called_once_with({
         Phase.L1: 14,
     })
@@ -461,8 +453,8 @@ def test_no_update_when_available_current_unknown_single_phase(coordinator_singl
     coordinator_single_phase._charger.set_current_limit.assert_not_called()
 
 
-def test_only_update_when_currents_have_changed_single_phase(coordinator_single_phase):
-    """Tests that no update happens on the allocator when the currents haven't changed in single phase setup."""
+def test_allocator_always_called_to_check_current_power_single_phase(coordinator_single_phase):
+    """Tests that allocator is always called to check current available power in single phase setup."""
     # Execute an update cycle
     coordinator_single_phase._execute_update_cycle(datetime.now())
 
@@ -474,17 +466,18 @@ def test_only_update_when_currents_have_changed_single_phase(coordinator_single_
         Phase.L1: -2,
     }
 
-    # Call second time, with same values, verify no update
+    # Call second time, with same values - should still call allocator
+    # (We always check current power, no optimization based on previous values)
     coordinator_single_phase._execute_update_cycle(datetime.now())
     assert coordinator_single_phase._balancer_algo.compute_availability.call_count == 2
-    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 2
 
     # Mock different values
     coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: 2}
 
     coordinator_single_phase._execute_update_cycle(datetime.now())
     assert coordinator_single_phase._balancer_algo.compute_availability.call_count == 3
-    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 2
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 3
     allocation_args = coordinator_single_phase._power_allocator.update_allocation.call_args[1]
     assert allocation_args["available_currents"] == {
         Phase.L1: 2,
@@ -508,10 +501,7 @@ def test_no_update_when_charger_shouldnt_be_checked_single_phase(coordinator_sin
 def test_no_update_too_frequent_single_phase(coordinator_single_phase):
     """Test that no update happens when last update was too recent in single phase setup."""
     # Set recent update time
-    coordinator_single_phase._last_charger_target_update = (
-        {Phase.L1: 10},
-        int(datetime.now().timestamp()) - 10,  # 10 seconds ago (less than MIN_CHARGER_UPDATE_DELAY)
-    )
+    coordinator_single_phase._last_charger_update_time = int(datetime.now().timestamp()) - 10  # 10 seconds ago (less than MIN_CHARGER_UPDATE_DELAY)
 
     # Execute update cycle
     coordinator_single_phase._execute_update_cycle(datetime.now())
@@ -530,10 +520,7 @@ def test_update_after_delay_single_phase(coordinator_single_phase):
         coordinator_single_phase.config_entry, of.OPTION_CHARGE_LIMIT_HYSTERESIS
     )
     # Set update time far enough in the past
-    coordinator_single_phase._last_charger_target_update = (
-        {Phase.L1: 10},
-        int(datetime.now().timestamp()) - (MIN_CHARGER_UPDATE_DELAY + 10 + (min_charge_minutes * 60)),
-    )
+    coordinator_single_phase._last_charger_update_time = int(datetime.now().timestamp()) - (MIN_CHARGER_UPDATE_DELAY + 10 + (min_charge_minutes * 60))
 
     # Execute update cycle
     coordinator_single_phase._execute_update_cycle(datetime.now())
@@ -707,24 +694,45 @@ def test_single_phase_balancer_initialization(coordinator_single_phase):
     assert available_phases[0] == Phase.L1
 
 
-def test_single_phase_current_stability_check(coordinator_single_phase):
-    """Test that single phase current stability checks work correctly."""
-    # Set initial availability
-    coordinator_single_phase._previous_current_availability = {Phase.L1: 5}
+def test_single_phase_timing_restrictions_work_correctly(coordinator_single_phase):
+    """Test that single phase timing restrictions work correctly"""
+    # Set recent update time to test timing restrictions
+    coordinator_single_phase._last_charger_update_time = int(datetime.now().timestamp()) - 10  # 10 seconds ago
 
-    # Test with same current - should not act
-    assert not coordinator_single_phase._should_act_upon_availability({Phase.L1: 5})
+    # Setup allocation that would suggest an increase (timing should block this)
+    coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: 3}
+    coordinator_single_phase._power_allocator.update_allocation.return_value = {
+        TEST_CHARGER_ID: {Phase.L1: 16}  # Increase
+    }
 
-    # Test with different current - should act
-    assert coordinator_single_phase._should_act_upon_availability({Phase.L1: 3})
+    # Execute update cycle
+    coordinator_single_phase._execute_update_cycle(datetime.now())
 
-    # Test with first run (no previous availability) - should act
-    coordinator_single_phase._previous_current_availability = None
-    assert coordinator_single_phase._should_act_upon_availability({Phase.L1: 5})
+    # Balancer and allocator should still be called to check current power
+    assert coordinator_single_phase._balancer_algo.compute_availability.called
+    assert coordinator_single_phase._power_allocator.update_allocation.called
+
+    # But charger should not be updated due to timing delay for increases
+    coordinator_single_phase._charger.set_current_limit.assert_not_called()
+
+    # Test that decreases (safety) bypass timing restrictions
+    coordinator_single_phase._charger.set_current_limit.reset_mock()
+    coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: -2}
+    coordinator_single_phase._power_allocator.update_allocation.return_value = {
+        TEST_CHARGER_ID: {Phase.L1: 10}  # Decrease for safety
+    }
+
+    # Set recent update time to test timing restrictions
+    coordinator_single_phase._last_charger_update_time = int(datetime.now().timestamp()) - 40  # 40 seconds ago
+
+    coordinator_single_phase._execute_update_cycle(datetime.now())
+
+    # Charger should be updated immediately for safety (decrease)
+    coordinator_single_phase._charger.set_current_limit.assert_called_once_with({Phase.L1: 10})
 
 
-def test_single_phase_multiple_update_cycles(coordinator_single_phase):
-    """Test multiple update cycles work correctly for single phase."""
+def test_single_phase_allocator_always_called(coordinator_single_phase):
+    """Test that allocator is always called to check current power for single phase."""
     # First cycle - overcurrent
     coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: -2}
     coordinator_single_phase._power_allocator.update_allocation.return_value = {
@@ -737,12 +745,13 @@ def test_single_phase_multiple_update_cycles(coordinator_single_phase):
     assert coordinator_single_phase._balancer_algo.compute_availability.call_count == 1
     assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
 
-    # Second cycle - same values, should not update allocator
+    # Second cycle - same values, should still call allocator
+    # (Always check current power, no optimization)
     coordinator_single_phase._execute_update_cycle(datetime.now())
 
-    # Balancer should be called again but allocator should not (no change)
+    # Both should be called again to check current power
     assert coordinator_single_phase._balancer_algo.compute_availability.call_count == 2
-    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 2
 
     # Third cycle - different values
     coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: 3}
@@ -754,25 +763,28 @@ def test_single_phase_multiple_update_cycles(coordinator_single_phase):
 
     # Both should be called again
     assert coordinator_single_phase._balancer_algo.compute_availability.call_count == 3
-    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 2
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 3
 
 
-def test_single_phase_charger_update_delay(coordinator_single_phase):
-    """Test that charger update delay works correctly for single phase."""
+def test_single_phase_charger_timing_restrictions(coordinator_single_phase):
+    """Test that charger timing restrictions work correctly for single phase."""
     # Set recent update time
-    coordinator_single_phase._last_charger_target_update = (
-        {Phase.L1: 15},
-        int(datetime.now().timestamp()) - 10,  # 10 seconds ago
-    )
+    coordinator_single_phase._last_charger_update_time = int(datetime.now().timestamp()) - 10
+
+    # Setup an increase scenario (should be blocked by timing)
+    coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: 2}
+    coordinator_single_phase._power_allocator.update_allocation.return_value = {
+        TEST_CHARGER_ID: {Phase.L1: 16}  # Increase
+    }
 
     # Execute update cycle
     coordinator_single_phase._execute_update_cycle(datetime.now())
 
-    # Balancer and allocator should still be called
+    # Balancer and allocator should still be called to check current power
     assert coordinator_single_phase._balancer_algo.compute_availability.called
     assert coordinator_single_phase._power_allocator.update_allocation.called
 
-    # But charger should not be updated due to delay
+    # But charger should not be updated due to timing delay for increases
     coordinator_single_phase._charger.set_current_limit.assert_not_called()
 
 
@@ -783,13 +795,235 @@ def test_single_phase_charger_update_after_delay(coordinator_single_phase):
     )
 
     # Set update time far enough in the past
-    coordinator_single_phase._last_charger_target_update = (
-        {Phase.L1: 15},
-        int(datetime.now().timestamp()) - (MIN_CHARGER_UPDATE_DELAY + 10 + (min_charge_minutes * 60)),
-    )
+    coordinator_single_phase._last_charger_update_time = int(datetime.now().timestamp()) - (MIN_CHARGER_UPDATE_DELAY + 10 + (min_charge_minutes * 60))
 
     # Execute update cycle
     coordinator_single_phase._execute_update_cycle(datetime.now())
 
     # Charger should be updated
     coordinator_single_phase._charger.set_current_limit.assert_called_once()
+    coordinator_single_phase._execute_update_cycle(datetime.now())
+
+    # Charger should be updated
+    coordinator_single_phase._charger.set_current_limit.assert_called_once()
+
+
+def test_charger_update_timing_and_frequency_control(coordinator_single_phase):
+    """Test end-to-end scenario for charger update timing and frequency control."""
+
+    # Scenario setup: We'll simulate multiple 5-second cycles with positive available current
+    # and verify that charger updates follow the timing rules
+
+    base_time = datetime.now()
+
+    # Setup: Start with positive available current that should trigger an increase
+    coordinator_single_phase._charger.set_current_limits({Phase.L1: 10})
+    coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: 5}
+    coordinator_single_phase._power_allocator.update_allocation.return_value = {
+        coordinator_single_phase._charger.id: {Phase.L1: 12}  # Suggested increase
+    }
+
+    # === CYCLE 1: No previous update, should update immediately ===
+    coordinator_single_phase._execute_update_cycle(base_time)
+
+    # Verify: Power allocator was called and charger was updated
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 1
+    coordinator_single_phase._charger.set_current_limit.assert_called_with({Phase.L1: 12})
+
+    # Reset mocks for next cycles
+    coordinator_single_phase._power_allocator.update_allocation.reset_mock()
+    coordinator_single_phase._charger.set_current_limit.reset_mock()
+
+    # === CYCLE 2: 5 seconds later, still positive current ===
+    # Should NOT update due to 30-second minimum delay
+    coordinator_single_phase._execute_update_cycle(base_time + timedelta(seconds=5))
+
+    # Verify: Power allocator called (availability checked) but charger NOT updated
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 0
+
+    coordinator_single_phase._power_allocator.update_allocation.reset_mock()
+
+    # === CYCLE 3: 10 seconds later, still positive current ===
+    # Should still NOT update due to 30-second minimum delay
+    coordinator_single_phase._execute_update_cycle(base_time + timedelta(seconds=10))
+
+    # Verify: Power allocator called but charger still NOT updated
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 0
+
+    coordinator_single_phase._power_allocator.update_allocation.reset_mock()
+
+    coordinator_single_phase._execute_update_cycle(base_time + timedelta(seconds=35))
+
+    # Verify: Power allocator called but charger still NOT updated (needs 15 minutes for increases)
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 0
+
+    coordinator_single_phase._power_allocator.update_allocation.reset_mock()
+
+    # === CYCLE 5: Test immediate update for DECREASES (overcurrent protection) ===
+    # Change to negative current (overcurrent)
+    coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: -3}
+    coordinator_single_phase._power_allocator.update_allocation.return_value = {
+        coordinator_single_phase._charger.id: {Phase.L1: 8}  # Suggested decrease
+    }
+
+    coordinator_single_phase._execute_update_cycle(base_time)
+
+    # Verify: Should not update immediately if within 20 seconds device limit
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 0
+
+    coordinator_single_phase._power_allocator.update_allocation.reset_mock()
+    coordinator_single_phase._charger.set_current_limit.reset_mock()
+
+    coordinator_single_phase._execute_update_cycle(base_time + timedelta(seconds=21))
+
+    # Verify: Should update after 20 seconds device limit
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 1
+    coordinator_single_phase._charger.set_current_limit.assert_called_with({Phase.L1: 8})
+
+    coordinator_single_phase._power_allocator.update_allocation.reset_mock()
+    coordinator_single_phase._charger.set_current_limit.reset_mock()
+
+    # === CYCLE 6: After 15+ minutes, positive current should allow increase ===
+
+    # Back to positive current
+    coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: 4}
+    coordinator_single_phase._power_allocator.update_allocation.return_value = {
+        coordinator_single_phase._charger.id: {Phase.L1: 11}  # Suggested increase
+    }
+
+    coordinator_single_phase._execute_update_cycle(base_time + timedelta(minutes=16))
+
+    # Verify: Should now allow increase after 15-minute delay
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 1
+    coordinator_single_phase._charger.set_current_limit.assert_called_with({Phase.L1: 11})
+
+
+def test_allocator_called_every_cycle_regardless_of_availability_changes(coordinator_single_phase):
+    """Test that power allocator is called every cycle to check current available power."""
+
+    # Setup: Initial availability
+    coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: 5}
+    coordinator_single_phase._power_allocator.update_allocation.return_value = {
+        coordinator_single_phase._charger.id: {Phase.L1: 12}
+    }
+
+    # === CYCLE 1: First run, should call allocator ===
+    coordinator_single_phase._execute_update_cycle(datetime.now())
+
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 1
+
+    coordinator_single_phase._power_allocator.update_allocation.reset_mock()
+    coordinator_single_phase._charger.set_current_limit.reset_mock()
+
+    # === CYCLE 2: Same availability, should STILL call allocator ===
+    # (We always check current power, no previous availability tracking)
+    coordinator_single_phase._execute_update_cycle(datetime.now())
+
+    # Verify: Both balancer and allocator called to check current power
+    assert coordinator_single_phase._balancer_algo.compute_availability.call_count == 2
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    # Charger not updated due to timing restrictions, but allocator still called
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 0
+
+    # === CYCLE 3: Different availability, should call allocator ===
+    coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: 3}
+
+    coordinator_single_phase._execute_update_cycle(datetime.now())
+
+    # Verify: Allocator called as always
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 2
+
+    coordinator_single_phase._power_allocator.update_allocation.reset_mock()
+
+    # === CYCLE 4: Back to same availability as cycle 3, should STILL call allocator ===
+    coordinator_single_phase._execute_update_cycle(datetime.now())
+
+    # Always check current power - no optimization based on previous availability
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+
+
+def test_overcurrent_bypasses_user_configured_timing_restrictions(coordinator_single_phase):
+    """Test that overcurrent situations bypass timing restrictions for immediate action."""
+
+    # Setup: Recent charger update (within all timing windows)
+    coordinator_single_phase._last_charger_update_time = int(datetime.now().timestamp()) - 35
+
+    # Setup: Overcurrent situation
+    coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: -5}
+    coordinator_single_phase._power_allocator.update_allocation.return_value = {
+        coordinator_single_phase._charger.id: {Phase.L1: 8}  # Emergency reduction
+    }
+
+    # Execute cycle
+    coordinator_single_phase._execute_update_cycle(datetime.now())
+
+    # Verify: Despite recent update, charger should be updated immediately for safety
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 1
+    coordinator_single_phase._charger.set_current_limit.assert_called_with({Phase.L1: 8})
+
+
+def test_overcurrent_does_not_bypass_fixed_timing_restrictions(coordinator_single_phase):
+    """Test that overcurrent situations don't bypass default 20 seconds timing restriction."""
+
+    # Setup: Recent charger update (within all timing windows)
+    coordinator_single_phase._last_charger_update_time = int(datetime.now().timestamp()) - 1
+
+    # Setup: Overcurrent situation
+    coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: -5}
+    coordinator_single_phase._power_allocator.update_allocation.return_value = {
+        coordinator_single_phase._charger.id: {Phase.L1: 8}  # Emergency reduction
+    }
+
+    # Execute cycle
+    coordinator_single_phase._execute_update_cycle(datetime.now())
+
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 0
+
+
+def test_timing_prevents_rapid_increases_but_allows_decreases(coordinator_single_phase):
+    """Test that timing restrictions prevent rapid increases but always allow decreases."""
+
+    base_time = int(datetime.now().timestamp())
+
+    # Setup: Recent charger update
+    coordinator_single_phase._last_charger_update_time = base_time - 10
+
+    # === Test 1: Positive current (increase) should be blocked ===
+    coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: 3}
+    coordinator_single_phase._power_allocator.update_allocation.return_value = {
+        coordinator_single_phase._charger.id: {Phase.L1: 13}  # Increase
+    }
+
+    coordinator_single_phase._execute_update_cycle(datetime.now())
+
+    # Verify: Allocator called but charger NOT updated (blocked by timing)
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 0
+
+    coordinator_single_phase._power_allocator.update_allocation.reset_mock()
+
+    # Setup: Recent charger update
+    coordinator_single_phase._last_charger_update_time = base_time - 40
+
+    # === Test 2: Negative current (decrease) should NOT be blocked ===
+    coordinator_single_phase._balancer_algo.compute_availability.return_value = {Phase.L1: -2}
+    coordinator_single_phase._power_allocator.update_allocation.return_value = {
+        coordinator_single_phase._charger.id: {Phase.L1: 7}  # Decrease
+    }
+
+    coordinator_single_phase._execute_update_cycle(datetime.now())
+
+    # Verify: Both allocator and charger should be called (safety override)
+    assert coordinator_single_phase._power_allocator.update_allocation.call_count == 1
+    assert coordinator_single_phase._charger.set_current_limit.call_count == 1
+    coordinator_single_phase._charger.set_current_limit.assert_called_with({Phase.L1: 7})

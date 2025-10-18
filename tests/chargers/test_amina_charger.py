@@ -122,6 +122,16 @@ def test_car_connected_false(amina_charger):
     assert amina_charger.car_connected() is False
 
 
+def test_is_charging_true(amina_charger):
+    amina_charger._state_cache[AminaPropertyMap.Charging] = True
+    assert amina_charger.is_charging() is True
+
+
+def test_is_charging_false(amina_charger):
+    amina_charger._state_cache[AminaPropertyMap.EvConnected] = False
+    assert amina_charger.is_charging() is False
+
+
 def test_can_charge_false_not_connected(amina_charger):
     amina_charger._state_cache[AminaPropertyMap.EvConnected] = False
     assert amina_charger.can_charge() is False
