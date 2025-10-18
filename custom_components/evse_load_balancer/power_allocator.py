@@ -9,9 +9,6 @@ from .const import Phase
 
 _LOGGER = logging.getLogger(__name__)
 
-# Amina hardware constants used to detect chargers that clamp small limits
-AMINA_HW_MAX_CURRENT = 32
-AMINA_HW_MIN_CURRENT = 6
 
 
 class ChargerState:
@@ -183,22 +180,8 @@ class PowerAllocator:
         # Allocate current based on strategy
         allocated_currents = self._allocate_current(available_currents)
 
-        # Early special-case handling for chargers with hardware minimums
-        # (e.g. Amina). If a charger would receive a small non-zero
-        # allocation below its hardware minimum, convert that to 0 to
-        # avoid the device clamping the requested value and creating
-        # oscillation between OFF/ON states. Do this immediately on the
-        # allocated_currents so downstream logic sees the corrected values.
-        for charger_id, limits in list(allocated_currents.items()):
-            state = self._chargers[charger_id]
-            max_limits = state.charger.get_max_current_limit()
-            if (
-                max_limits
-                and any(v == AMINA_HW_MAX_CURRENT for v in max_limits.values())
-            ):
-                min_val = min(limits.values())
-                if 0 < min_val < AMINA_HW_MIN_CURRENT:
-                    allocated_currents[charger_id] = dict.fromkeys(Phase, 0)
+        # No hardware-minimum special-casing here; keep allocation logic
+        # minimal and device-specific handling belongs in charger implementations.
 
         # Create result dictionary for chargers that need updating
         result = {}
@@ -241,12 +224,6 @@ class PowerAllocator:
             "Updated applied current for charger %s: %s", charger_id, applied_current
         )
 
-    def get_last_applied_current(self, charger_id: str) -> dict[Phase, int] | None:
-        """Return the last applied current for a charger if known."""
-        state = self._chargers.get(charger_id)
-        if not state:
-            return None
-        return state.last_applied_current
 
     def _allocate_current(
         self, available_currents: dict[Phase, int]
@@ -293,23 +270,8 @@ class PowerAllocator:
                     # If no phases were processed, keep the original values
                     pass
 
-        # Special-case handling for chargers with hardware minimums (e.g. Amina)
-        # If a charger would receive a small non-zero allocation below its
-        # hardware minimum, convert that to 0 to avoid the device clamping
-        # the requested value and creating oscillation between OFF/ON states.
-        for charger_id, limits in list(result.items()):
-            state = self._chargers[charger_id]
-            max_limits = state.charger.get_max_current_limit()
-            # If charger exposes a max limit and it's the Amina max in our
-            # codebase we can assume the charger clamps small values.
-            if (
-                max_limits
-                and any(v == AMINA_HW_MAX_CURRENT for v in max_limits.values())
-            ):
-                # Convert any small non-zero minimum to 0 to pause cleanly.
-                min_val = min(limits.values())
-                if 0 < min_val < AMINA_HW_MIN_CURRENT:
-                    result[charger_id] = dict.fromkeys(Phase, 0)
+        # No device-specific min-current clamping here; device quirks are handled
+        # at the charger implementation level (e.g. AminaCharger).
 
         return result
 
