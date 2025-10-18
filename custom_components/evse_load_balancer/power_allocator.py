@@ -51,7 +51,11 @@ class ChargerState:
 
         is_charging = self.charger.can_charge()
 
-        if is_charging and not self._active_session and not self.manual_override_detected:
+        if (
+            is_charging
+            and not self._active_session
+            and not self.manual_override_detected
+        ):
             max_limits = self.charger.get_max_current_limit()
             if max_limits:
                 self.requested_current = dict(max_limits)
@@ -79,7 +83,7 @@ class ChargerState:
                 suppress = self.charger.acknowledge_hardware_override(
                     current_setting, self.last_applied_current
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 _LOGGER.debug(
                     "Error while consulting charger for hardware override "
                     "suppression: %s",

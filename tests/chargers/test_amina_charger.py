@@ -1,22 +1,21 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-from custom_components.evse_load_balancer.const import (
-    Phase,
-    CHARGER_MANUFACTURER_AMINA,
-    HA_INTEGRATION_DOMAIN_MQTT,
-    Z2M_DEVICE_IDENTIFIER_DOMAIN
-)
 from homeassistant.helpers.device_registry import DeviceEntry
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+
 from custom_components.evse_load_balancer.chargers.amina_charger import (
+    AMINA_HW_MAX_CURRENT,
     AminaCharger,
     AminaPropertyMap,
     AminaStatusMap,
-    AMINA_HW_MAX_CURRENT,
 )
-
-from custom_components.evse_load_balancer.chargers.charger import (
-    PhaseMode
+from custom_components.evse_load_balancer.chargers.charger import PhaseMode
+from custom_components.evse_load_balancer.const import (
+    CHARGER_MANUFACTURER_AMINA,
+    HA_INTEGRATION_DOMAIN_MQTT,
+    Z2M_DEVICE_IDENTIFIER_DOMAIN,
+    Phase,
 )
 
 
@@ -204,7 +203,7 @@ async def test_set_current_limit_below_minimum_sends_off(amina_charger):
     with patch.object(amina_charger, "_async_mqtt_publish", new=AsyncMock()) as mock_publish:
         # Request a current of 2A, which is below the 6A minimum
         await amina_charger.set_current_limit({Phase.L1: 2, Phase.L2: 2, Phase.L3: 2})
-        
+
         # Verify that an OFF command is sent with the charge_limit clamped to the minimum
         mock_publish.assert_awaited_once_with(
             topic=amina_charger._topic_set,
@@ -219,11 +218,11 @@ async def test_set_current_limit_above_minimum_sends_on(amina_charger):
     """Test that setting current above the minimum sends an ON command when car is connected."""
     # Mock car connected state
     amina_charger._state_cache[AminaPropertyMap.EvConnected] = True
-    
+
     with patch.object(amina_charger, "_async_mqtt_publish", new=AsyncMock()) as mock_publish:
         # Request a current of 10A
         await amina_charger.set_current_limit({Phase.L1: 10, Phase.L2: 10, Phase.L3: 10})
-        
+
         # Verify that an ON command is sent with the correct charge_limit
         mock_publish.assert_awaited_once_with(
             topic=amina_charger._topic_set,
@@ -238,11 +237,11 @@ async def test_set_current_limit_car_not_connected(amina_charger):
     """Test that State: ON is not sent when the car is not connected."""
     # Mock car not connected state
     amina_charger._state_cache[AminaPropertyMap.EvConnected] = False
-    
+
     with patch.object(amina_charger, "_async_mqtt_publish", new=AsyncMock()) as mock_publish:
         # Request a current of 10A
         await amina_charger.set_current_limit({Phase.L1: 10, Phase.L2: 10, Phase.L3: 10})
-        
+
         # Verify that only the charge limit is sent, not the ON command
         mock_publish.assert_awaited_once_with(
             topic=amina_charger._topic_set,
@@ -260,13 +259,13 @@ def test_acknowledge_hardware_override_suppresses_correctly(amina_charger):
     """Test that the override is suppressed when the hardware clamp is detected."""
     # Simulate the load balancer having last applied a low current (e.g., 1A)
     last_applied = {Phase.L1: 1, Phase.L2: 1, Phase.L3: 1}
-    
+
     # Simulate the charger reporting its hardware minimum (6A)
     reported_limit = {Phase.L1: 6, Phase.L2: 6, Phase.L3: 6}
-    
+
     # Simulate the charger state being OFF
     amina_charger._state_cache[AminaPropertyMap.State] = "OFF"
-    
+
     # The hook should return True, suppressing the override detection
     assert amina_charger.acknowledge_hardware_override(reported_limit, last_applied) is True
 
@@ -274,13 +273,13 @@ def test_acknowledge_hardware_override_for_genuine_manual_change(amina_charger):
     """Test that a genuine manual override is not suppressed."""
     # Simulate the load balancer having last applied 10A
     last_applied = {Phase.L1: 10, Phase.L2: 10, Phase.L3: 10}
-    
+
     # Simulate the user manually changing the limit to 16A via another app
     reported_limit = {Phase.L1: 16, Phase.L2: 16, Phase.L3: 16}
-    
+
     # Simulate the charger state being ON
     amina_charger._state_cache[AminaPropertyMap.State] = "ON"
-    
+
     # The hook should return False, allowing the manual override to be detected
     assert amina_charger.acknowledge_hardware_override(reported_limit, last_applied) is False
 
@@ -292,10 +291,10 @@ def test_acknowledge_hardware_override_suppresses_with_boolean_state(amina_charg
     """Test suppression when the charger reports a boolean False for state."""
     last_applied = {Phase.L1: 1, Phase.L2: 1, Phase.L3: 1}
     reported_limit = {Phase.L1: 6, Phase.L2: 6, Phase.L3: 6}
-    
+
     # Simulate the charger state being boolean False
     amina_charger._state_cache[AminaPropertyMap.State] = False
-    
+
     # The hook should return True
     assert amina_charger.acknowledge_hardware_override(reported_limit, last_applied) is True
 
@@ -303,11 +302,11 @@ def test_acknowledge_hardware_override_falls_through(amina_charger):
     """Test that the function falls through and returns False for partial matches."""
     # Last applied was low, which meets one condition
     last_applied = {Phase.L1: 1, Phase.L2: 1, Phase.L3: 1}
-    
+
     # But the reported limit is not the hardware minimum, so it's a genuine change
     reported_limit = {Phase.L1: 7, Phase.L2: 7, Phase.L3: 7}
-    
+
     amina_charger._state_cache[AminaPropertyMap.State] = "OFF"
-    
+
     # The hook should fall through and return False
     assert amina_charger.acknowledge_hardware_override(reported_limit, last_applied) is False
