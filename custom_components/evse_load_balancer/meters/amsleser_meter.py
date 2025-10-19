@@ -23,16 +23,19 @@ ENTITY_REGISTRATION_MAP: dict[str, dict[str, str]] = {
         # cf.CONF_PHASE_SENSOR_PRODUCTION: "PO1",
         cf.CONF_PHASE_SENSOR_CONSUMPTION: "P1",
         cf.CONF_PHASE_SENSOR_VOLTAGE: "U1",
+        cf.CONF_PHASE_SENSOR_CURRENT: "I1",
     },
     cf.CONF_PHASE_KEY_TWO: {
         # cf.CONF_PHASE_SENSOR_PRODUCTION: "PO2",
         cf.CONF_PHASE_SENSOR_CONSUMPTION: "P2",
         cf.CONF_PHASE_SENSOR_VOLTAGE: "U2",
+        cf.CONF_PHASE_SENSOR_CURRENT: "I2",
     },
     cf.CONF_PHASE_KEY_THREE: {
         # cf.CONF_PHASE_SENSOR_PRODUCTION: "PO3",
         cf.CONF_PHASE_SENSOR_CONSUMPTION: "P3",
         cf.CONF_PHASE_SENSOR_VOLTAGE: "U3",
+        cf.CONF_PHASE_SENSOR_CURRENT: "I3",
     },
 }
 
@@ -50,24 +53,33 @@ class AmsleserMeter(Meter, HaDevice):
 
     def get_active_phase_current(self, phase: Phase) -> int | None:
         """Return the active current on a given phase."""
-        active_power_w = self.get_active_phase_power(phase)
-        voltage_state = self._get_entity_state_for_phase_sensor(
-            phase, cf.CONF_PHASE_SENSOR_VOLTAGE
+        current_state = self._get_entity_state_for_phase_sensor(
+            phase, cf.CONF_PHASE_SENSOR_CURRENT
         )
 
-        if None in [active_power_w, voltage_state]:
-            _LOGGER.warning(
-                (
-                    "Missing states for one of phase %s: active_power: %s, ",
-                    "voltage: %s. Are the entities enabled?",
-                ),
-                phase,
-                active_power_w,
-                voltage_state,
+        if current_state is None:
+            active_power_w = self.get_active_phase_power(phase)
+            voltage_state = self._get_entity_state_for_phase_sensor(
+                phase, cf.CONF_PHASE_SENSOR_VOLTAGE
             )
-            return None
-        # convert kW to W in order to calculate the current
-        return floor(active_power_w * 1000.0 / voltage_state) if voltage_state else None
+
+            if active_power_w is None or voltage_state is None:
+                _LOGGER.warning(
+                    (
+                        "Missing states for one of phase %s: active_power: %s, ",
+                        "voltage: %s, current: %s. Are the entities enabled?",
+                    ),
+                    phase,
+                    active_power_w,
+                    voltage_state,
+                    current_state,
+                )
+                return None
+
+            # convert kW to W in order to calculate the current
+            current_state = floor(active_power_w * 1000.0 / voltage_state) if voltage_state else None
+        
+        return floor(current_state) if current_state else None
 
     def get_active_phase_power(self, phase: Phase) -> float | None:
         """Return the active power on a given phase."""
@@ -76,12 +88,28 @@ class AmsleserMeter(Meter, HaDevice):
         )
 
         if consumption_state is None:
-            _LOGGER.warning(
-                "Missing state for one of phase %s: consumption: %s",
-                phase,
-                consumption_state,
+            current_state = self._get_entity_state_for_phase_sensor(
+                phase, cf.CONF_PHASE_SENSOR_CURRENT
             )
-            return None
+            voltage_state = self._get_entity_state_for_phase_sensor(
+                phase, cf.CONF_PHASE_SENSOR_VOLTAGE
+            )
+
+            if current_state is None or voltage_state is None:
+                _LOGGER.warning(
+                    (
+                        "Missing state for one of phase %s: consumption: %s, ",
+                        "current: %s, voltage: %s."
+                    ),
+                    phase,
+                    consumption_state,
+                    current_state,
+                    voltage_state,
+                )
+                return None
+
+            consumption_state = current_state * voltage_state
+
         # Amsleser returns W, convert to kW for consistency.
         return consumption_state / 1000.0
 
@@ -105,7 +133,7 @@ class AmsleserMeter(Meter, HaDevice):
         entity_id = self._get_entity_id_by_key(
             self._get_entity_map_for_phase(phase)[sensor_const]
         )
-        return self._get_entity_state(entity_id, float)
+        return self._get_entity_state(entity_id, float) if entity_id is not None else None
 
     def _get_entity_map_for_phase(self, phase: Phase) -> dict:
         entity_map = {}

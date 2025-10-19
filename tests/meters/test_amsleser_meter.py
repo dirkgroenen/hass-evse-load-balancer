@@ -7,6 +7,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.evse_load_balancer.meters.amsleser_meter import AmsleserMeter
 from custom_components.evse_load_balancer.meters.meter import Phase
+from custom_components.evse_load_balancer import config_flow as cf
 
 
 @pytest.fixture
@@ -70,7 +71,7 @@ def test_get_active_phase_power_none(amsleser_meter):
 
 def test_get_active_phase_current(amsleser_meter):
     amsleser_meter.get_active_phase_power = MagicMock(return_value=2.3)  # kW
-    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(return_value=230)  # V
+    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(side_effect=lambda _, s: 230 if s == cf.CONF_PHASE_SENSOR_VOLTAGE else None)
     result = amsleser_meter.get_active_phase_current(Phase.L1)
     assert result == 10  # floor((2.3*1000)/230) = 10
 
@@ -84,7 +85,7 @@ def test_get_active_phase_current_missing_voltage(amsleser_meter):
 
 def test_get_active_phase_current_missing_power(amsleser_meter):
     amsleser_meter.get_active_phase_power = MagicMock(return_value=None)
-    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(return_value=230)
+    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(side_effect=lambda _, s: 230 if s == cf.CONF_PHASE_SENSOR_VOLTAGE else None)
     result = amsleser_meter.get_active_phase_current(Phase.L1)
     assert result is None
 
