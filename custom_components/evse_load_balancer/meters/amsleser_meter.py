@@ -77,8 +77,9 @@ class AmsleserMeter(Meter, HaDevice):
                 return None
 
             # convert kW to W in order to calculate the current
-            current_state = floor(active_power_w * 1000.0 / voltage_state) if voltage_state else None
-        
+            current_state = (floor(active_power_w * 1000.0 / voltage_state)
+                             if voltage_state else None)
+
         return floor(current_state) if current_state else None
 
     def get_active_phase_power(self, phase: Phase) -> float | None:
@@ -133,7 +134,8 @@ class AmsleserMeter(Meter, HaDevice):
         entity_id = self._get_entity_id_by_key(
             self._get_entity_map_for_phase(phase)[sensor_const]
         )
-        return self._get_entity_state(entity_id, float) if entity_id is not None else None
+        return (self._get_entity_state(entity_id, float)
+                if entity_id is not None else None)
 
     def _get_entity_map_for_phase(self, phase: Phase) -> dict:
         entity_map = {}
