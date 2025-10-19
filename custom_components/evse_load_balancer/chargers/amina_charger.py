@@ -162,9 +162,8 @@ class AminaCharger(Zigbee2Mqtt, Charger):
         if current_limit_val is None or is_single_phase_val is None:
             return self._last_commanded_limit
 
-        is_off = (
-            state_val is False
-            or (isinstance(state_val, str) and str(state_val).upper() == "OFF")
+        is_off = state_val is False or (
+            isinstance(state_val, str) and str(state_val).upper() == "OFF"
         )
 
         current_limit_int = int(current_limit_val)
