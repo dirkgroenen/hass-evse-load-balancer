@@ -42,50 +42,88 @@ def amsleser_meter(mock_hass, mock_config_entry, mock_device_entry):
         config_entry=mock_config_entry,
         device_entry=mock_device_entry,
     )
-    meter._get_entity_id_by_key = MagicMock()
-    meter._get_entity_state = MagicMock()
     meter.entities = []
     return meter
 
 
-def test_get_active_phase_power_consumption(amsleser_meter):
-    amsleser_meter._get_entity_id_by_key.return_value = "sensor.p1"
-    amsleser_meter._get_entity_state.return_value = 2300  # 2300W
+def test_get_active_phase_power(amsleser_meter):
+    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(
+        side_effect=lambda _, s: 2300 if s == cf.CONF_PHASE_SENSOR_CONSUMPTION else None
+    )
     result = amsleser_meter.get_active_phase_power(Phase.L1)
     assert result == 2.3
 
 
-#def test_get_active_phase_power_production(amsleser_meter):
-#    amsleser_meter._get_entity_id_by_key.return_value = "sensor.p1"
-#    amsleser_meter._get_entity_state.return_value = -1200  # -1200W
-#    result = amsleser_meter.get_active_phase_power(Phase.L1)
-#    assert result == -1.2
+def test_get_active_phase_power_missing_consumption(amsleser_meter):
+    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(
+        side_effect=lambda _, s: 230 if s == cf.CONF_PHASE_SENSOR_VOLTAGE else 10 if s == cf.CONF_PHASE_SENSOR_CURRENT else None
+    )
+    result = amsleser_meter.get_active_phase_power(Phase.L1)
+    assert result == 2.3
 
 
-def test_get_active_phase_power_none(amsleser_meter):
-    amsleser_meter._get_entity_id_by_key.return_value = "sensor.p1"
-    amsleser_meter._get_entity_state.return_value = None
+def test_get_active_phase_power_missing_consumption_and_current(amsleser_meter):
+    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(
+        side_effect=lambda _, s: 230 if s == cf.CONF_PHASE_SENSOR_VOLTAGE else None
+    )
+    result = amsleser_meter.get_active_phase_power(Phase.L1)
+    assert result is None
+
+
+def test_get_active_phase_power_missing_consumption_and_voltage(amsleser_meter):
+    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(
+        side_effect=lambda _, s: 10 if s == cf.CONF_PHASE_SENSOR_CURRENT else None
+    )
+    result = amsleser_meter.get_active_phase_power(Phase.L1)
+    assert result is None
+
+
+def test_get_active_phase_power_missing_all(amsleser_meter):
+    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(return_value = None)
     result = amsleser_meter.get_active_phase_power(Phase.L1)
     assert result is None
 
 
 def test_get_active_phase_current(amsleser_meter):
+    amsleser_meter.get_active_phase_power = MagicMock()
+    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(
+        side_effect=lambda _, s: 10 if s == cf.CONF_PHASE_SENSOR_CURRENT else None
+    )
+    result = amsleser_meter.get_active_phase_current(Phase.L1)
+    assert result == 10  # floor((2.3*1000)/230) = 10
+    amsleser_meter.get_active_phase_power.assert_not_called()
+
+
+def test_get_active_phase_current_missing_current(amsleser_meter):
     amsleser_meter.get_active_phase_power = MagicMock(return_value=2.3)  # kW
-    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(side_effect=lambda _, s: 230 if s == cf.CONF_PHASE_SENSOR_VOLTAGE else None)
+    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(
+        side_effect=lambda _, s: 230 if s == cf.CONF_PHASE_SENSOR_VOLTAGE else None
+    )
     result = amsleser_meter.get_active_phase_current(Phase.L1)
     assert result == 10  # floor((2.3*1000)/230) = 10
 
 
-def test_get_active_phase_current_missing_voltage(amsleser_meter):
+def test_get_active_phase_current_missing_current_and_voltage(amsleser_meter):
     amsleser_meter.get_active_phase_power = MagicMock(return_value=2.3)
-    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(return_value=None)
+    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(
+        side_effect=lambda _, s: 2.3 if s == cf.CONF_PHASE_SENSOR_CONSUMPTION else None
+    )
     result = amsleser_meter.get_active_phase_current(Phase.L1)
     assert result is None
 
 
-def test_get_active_phase_current_missing_power(amsleser_meter):
+def test_get_active_phase_current_missing_current_and_power(amsleser_meter):
     amsleser_meter.get_active_phase_power = MagicMock(return_value=None)
-    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(side_effect=lambda _, s: 230 if s == cf.CONF_PHASE_SENSOR_VOLTAGE else None)
+    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(
+        side_effect=lambda _, s: 230 if s == cf.CONF_PHASE_SENSOR_VOLTAGE else None
+    )
+    result = amsleser_meter.get_active_phase_current(Phase.L1)
+    assert result is None
+
+
+def test_get_active_phase_current_missing_all(amsleser_meter):
+    amsleser_meter.get_active_phase_power = MagicMock(return_value=2.3)
+    amsleser_meter._get_entity_state_for_phase_sensor = MagicMock(return_value=None)
     result = amsleser_meter.get_active_phase_current(Phase.L1)
     assert result is None
 
@@ -117,3 +155,12 @@ def test_get_entity_map_for_phase_valid(amsleser_meter):
 def test_get_entity_map_for_phase_invalid(amsleser_meter):
     with pytest.raises(ValueError):
         amsleser_meter._get_entity_map_for_phase("invalid_phase")
+
+
+def test_get_entity_state_for_phase_sensor(amsleser_meter):
+    amsleser_meter._get_entity_id_by_key = MagicMock(return_value = "sensor.p1")
+    amsleser_meter._get_entity_state = MagicMock(return_value = 10)
+    result = amsleser_meter._get_entity_state_for_phase_sensor(Phase.L1, cf.CONF_PHASE_SENSOR_CONSUMPTION)
+    assert result == 10
+
+
