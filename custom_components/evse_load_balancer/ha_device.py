@@ -68,7 +68,7 @@ class HaDevice:
             )
         return entity.entity_id
 
-    def _get_entity_id_by_key(self, entity_key: str) -> float | None:
+    def _get_entity_id_by_key(self, entity_key: str) -> str | None:
         """
         Get the entity ID for a given key.
 
@@ -80,7 +80,7 @@ class HaDevice:
             None,
         )
         if entity is None:
-            msg = f"Entity with unique_id ending with '{entity_key}' not found"
+            msg = f"Entity with unique_id ending with '_{entity_key}' not found"
             raise ValueError(msg)
         if entity.disabled:
             _LOGGER.error(

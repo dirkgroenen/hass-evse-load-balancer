@@ -6,7 +6,8 @@ from custom_components.evse_load_balancer.meters import meter_factory
 from custom_components.evse_load_balancer.meters.custom_meter import CustomMeter
 from custom_components.evse_load_balancer.meters.dsmr_meter import DsmrMeter
 from custom_components.evse_load_balancer.meters.homewizard_meter import HomeWizardMeter
-from custom_components.evse_load_balancer.const import METER_DOMAIN_DSMR, METER_DOMAIN_HOMEWIZARD, SUPPORTED_METER_DEVICE_DOMAINS
+from custom_components.evse_load_balancer.meters.amsleser_meter import AmsleserMeter
+from custom_components.evse_load_balancer.const import METER_DOMAIN_DSMR, METER_DOMAIN_HOMEWIZARD, SUPPORTED_METER_DEVICES, METER_MANUFACTURER_AMSLESER, HA_INTEGRATION_DOMAIN_MQTT
 
 
 @pytest.fixture
@@ -48,12 +49,22 @@ async def test_meter_factory_homewizard_meter(mock_async_get, mock_hass, mock_co
     meter = await meter_factory(mock_hass, mock_config_entry, False, "device_id")
     assert isinstance(meter, HomeWizardMeter)
 
+@pytest.mark.asyncio
+@patch("custom_components.evse_load_balancer.meters.dr.async_get")
+async def test_meter_factory_amsleser_meter(mock_async_get, mock_hass, mock_config_entry, mock_device_entry):
+    mock_device_entry.identifiers = {(HA_INTEGRATION_DOMAIN_MQTT, "id3")}
+    mock_device_entry.manufacturer = METER_MANUFACTURER_AMSLESER
+    mock_async_get.return_value.async_get.return_value = mock_device_entry
+    meter = await meter_factory(mock_hass, mock_config_entry, False, "device_id")
+    assert isinstance(meter, AmsleserMeter)
+
 
 @pytest.mark.asyncio
 @patch("custom_components.evse_load_balancer.meters.dr.async_get")
 async def test_meter_factory_implements_all_supported_meters(mock_async_get, mock_hass, mock_config_entry, mock_device_entry):
-    for domain in SUPPORTED_METER_DEVICE_DOMAINS:
+    for (domain, manufacturer) in SUPPORTED_METER_DEVICES:
         mock_device_entry.identifiers = {(domain, "id2")}
+        mock_device_entry.manufacturer = manufacturer
         mock_async_get.return_value.async_get.return_value = mock_device_entry
         try:
             await meter_factory(mock_hass, mock_config_entry, False, "device_id")
