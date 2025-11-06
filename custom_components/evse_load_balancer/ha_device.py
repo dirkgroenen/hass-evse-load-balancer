@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import (
@@ -11,9 +11,7 @@ from homeassistant.helpers import (
 from homeassistant.helpers.device_registry import (
     DeviceEntry,
 )
-
-if TYPE_CHECKING:
-    from homeassistant.helpers.entity_registry import RegistryEntry
+from homeassistant.helpers.entity_registry import RegistryEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,12 +24,23 @@ class HaDevice:
         self.hass = hass
         self.device_entry = device_entry
         self.entity_registry = er.async_get(self.hass)
+        self.entities: list[RegistryEntry] = []
 
     def refresh_entities(self) -> None:
         """Refresh local list of entity maps for the meter."""
         self.entities = self._get_entities_for_device()
+        _LOGGER.debug(
+            "Refreshed entities: %s",
+            [
+                (
+                    f"{e.entity_id} (translation_key={e.translation_key},"
+                    f" unique_id={e.unique_id}, disabled={e.disabled})"
+                )
+                for e in self.entities
+            ],
+        )
 
-    def _get_entities_for_device(self) -> None:
+    def _get_entities_for_device(self) -> list[RegistryEntry]:
         """Get all available entities for the linked HA device."""
         return self.entity_registry.entities.get_entries_for_device_id(
             self.device_entry.id,
@@ -53,7 +62,7 @@ class HaDevice:
             )
         return entity.entity_id
 
-    def _get_entity_id_by_unique_id(self, entity_unique_id: str) -> str | None:
+    def _get_entity_id_by_unique_id(self, entity_unique_id: str) -> str:
         """Get the entity ID for a given unique ID."""
         entity: RegistryEntry | None = next(
             (e for e in self.entities if e.unique_id == entity_unique_id),
@@ -68,7 +77,7 @@ class HaDevice:
             )
         return entity.entity_id
 
-    def _get_entity_id_by_key(self, entity_key: str) -> float | None:
+    def _get_entity_id_by_key(self, entity_key: str) -> str:
         """
         Get the entity ID for a given key.
 
