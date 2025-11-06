@@ -57,8 +57,9 @@
 | Amina S Chargers | [Zigbee2MQTT/amina_S](https://www.zigbee2mqtt.io/devices/amina_S.html) | ? |
 | Lektrico Chargers | [lektrico](https://www.home-assistant.io/integrations/lektrico/) | HA 2024.10+ |
 | Keba Charging Station (BMW Wallbox) | [keba](https://www.home-assistant.io/integrations/keba/) | ? |
+| OCPP Chargers | [lbbrhzn/ocpp](https://github.com/lbbrhzn/ocpp) | ? |
 
-*Additional chargers to be added...*
+*Additional chargers to be added, feel free to request or add yourself...*
 
 ## How It Works
 
