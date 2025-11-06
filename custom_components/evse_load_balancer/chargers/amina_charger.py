@@ -2,7 +2,6 @@
 
 import logging
 from enum import StrEnum, unique
-from typing import Self
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -29,7 +28,8 @@ class AminaPropertyMap(StrEnum):
     Charging = "charging"
     State = "state"
 
-    def gettable() -> list[Self]:
+    @staticmethod
+    def gettable() -> list[StrEnum]:
         """Define properties that can be fetched via a /get request."""
         return [
             AminaPropertyMap.ChargeLimit,
@@ -43,6 +43,14 @@ class AminaStatusMap(StrEnum):
 
     Charging = "charging"
     ReadyToCharge = "ready_to_charge"
+
+
+@unique
+class AminaStateMap(StrEnum):
+    """Map Amina charger states to string representations."""
+
+    On = "ON"
+    Off = "OFF"
 
 
 # Hardware limits for Amina S
@@ -67,7 +75,7 @@ class AminaCharger(Zigbee2Mqtt, Charger):
             hass=hass,
             z2m_name=device.name,
             state_cache=dict.fromkeys([e.value for e in AminaPropertyMap], None),
-            gettable_properties=[e.value for e in AminaPropertyMap.gettable()],
+            gettable_properties={e.value for e in AminaPropertyMap.gettable()},
         )
         Charger.__init__(self, hass=hass, config_entry=config_entry, device=device)
 
@@ -122,7 +130,7 @@ class AminaCharger(Zigbee2Mqtt, Charger):
             await self._async_mqtt_publish(
                 topic=self._topic_set,
                 payload={
-                    AminaPropertyMap.State: "OFF",
+                    AminaPropertyMap.State: AminaStateMap.Off,
                     AminaPropertyMap.ChargeLimit: AMINA_HW_MIN_CURRENT,
                 },
             )
@@ -163,7 +171,7 @@ class AminaCharger(Zigbee2Mqtt, Charger):
             return self._last_commanded_limit
 
         is_off = state_val is False or (
-            isinstance(state_val, str) and str(state_val).upper() == "OFF"
+            isinstance(state_val, str) and str(state_val).upper() == AminaStateMap.Off
         )
 
         current_limit_int = int(current_limit_val)
