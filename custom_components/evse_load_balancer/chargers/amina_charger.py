@@ -80,6 +80,10 @@ class AminaCharger(Zigbee2Mqtt, Charger):
         Charger.__init__(self, hass=hass, config_entry=config_entry, device=device)
 
         # Track what we last commanded to handle hardware normalization
+        # Track what we last commanded to handle hardware normalization
+        # Note: See https://github.com/dirkgroenen/hass-evse-load-balancer/pull/72#discussion_r2503237801
+        # discussing how this should ideally be removed out of the charger
+        # and moved to the coordinator/powerallocator.
         self._last_commanded_limit: dict[Phase, int] | None = None
 
     @staticmethod
