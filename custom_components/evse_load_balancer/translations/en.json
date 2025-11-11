@@ -49,6 +49,12 @@
             "already_configured": "This device or service is already configured."
         }
     },
+    "issues": {
+        "sensors_unavailable": {
+            "title": "Energy Sensors Unavailable",
+            "description": "The EVSE Load Balancer cannot operate because the following energy sensors are unavailable:\n\n{sensors}\n\nThis can happen if:\n- The sensor integration (e.g., MQTT, DSMR) hasn't started yet\n- The sensors are disabled or have been removed\n- There's a connection issue with your energy meter\n\nThe load balancer waited {grace_period} seconds after startup but the sensors are still unavailable. Please check your sensor configuration and ensure all required sensors are available.\n\nThis issue will automatically dismiss once all sensors become available."
+        }
+    },
     "entity": {
         "sensor": {
             "evse_load_balancing_state": {
@@ -56,6 +62,7 @@
                 "state": {
                     "awaiting_charger": "Awaiting charger",
                     "monitoring_loads": "Monitoring loads",
+                    "initializing": "Initializing",
                     "error": "Error"
                 }
             },

@@ -27,3 +27,7 @@ class Meter(ABC):
     @abstractmethod
     def get_tracking_entities(self) -> list[str]:
         """Return a list of entity IDs that should be tracked for the meter."""
+
+    def get_unavailable_sensors(self) -> list[str]:
+        """Return a list of currently unavailable sensors."""
+        return []

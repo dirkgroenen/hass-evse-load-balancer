@@ -26,6 +26,7 @@ class HaDevice:
         self.hass = hass
         self.device_entry = device_entry
         self.entity_registry = er.async_get(self.hass)
+        self._unavailable_sensors: set[str] = set()
 
     def refresh_entities(self) -> None:
         """Refresh local list of entity maps for the meter."""
@@ -88,6 +89,10 @@ class HaDevice:
             )
         return entity.entity_id
 
+    def get_unavailable_sensors(self) -> list[str]:
+        """Return a list of currently unavailable sensors."""
+        return list(self._unavailable_sensors)
+
     def _get_entity_state(
         self, entity_id: str, parser_fn: Callable | None = None
     ) -> Any | None:
@@ -95,15 +100,26 @@ class HaDevice:
         state = self.hass.states.get(entity_id)
         if state is None:
             _LOGGER.debug("State not found for entity %s", entity_id)
+            self._unavailable_sensors.add(entity_id)
+            return None
+
+        state_value = state.state
+
+        if state_value in ("unavailable", "unknown"):
+            self._unavailable_sensors.add(entity_id)
             return None
 
         try:
-            return parser_fn(state.state) if parser_fn else state.state
+            value = parser_fn(state_value) if parser_fn else state_value
         except ValueError:
             _LOGGER.warning(
-                "State for entity %s can't be parsed: %s", entity_id, state.state
+                "State for entity %s can't be parsed: %s", entity_id, state_value
             )
+            self._unavailable_sensors.add(entity_id)
             return None
+        else:
+            self._unavailable_sensors.discard(entity_id)
+            return value
 
     def _get_entity_state_attrs(self, entity_id: str) -> dict | None:
         """Get the state attributes for a given entity."""
