@@ -1,11 +1,10 @@
 [![easee_hass](https://img.shields.io/github/release/dirkgroenen/hass-evse-load-balancer.svg?1)](https://github.com/dirkgroenen/hass-evse-load-balancer) ![Validate with hassfest](https://github.com/dirkgroenen/hass-evse-load-balancer/workflows/Validate%20with%20Hassfest%20and%20HACS/badge.svg) ![Maintenance](https://img.shields.io/maintenance/yes/2025.svg) [![Easee_downloads](https://img.shields.io/github/downloads/dirkgroenen/hass-evse-load-balancer/total)](https://github.com/dirkgroenen/hass-evse-load-balancer) [![easee_hass_downloads](https://img.shields.io/github/downloads/dirkgroenen/hass-evse-load-balancer/latest/total)](https://github.com/dirkgroenen/hass-evse-load-balancer)
 
-
-# EVSE Load Balancer for Home Assistant 🚗⚡️ 
+# EVSE Load Balancer for Home Assistant 🚗⚡️
 
 **EVSE Load Balancer** is an integration for [Home Assistant](https://www.home-assistant.io/) that provides a **universal load balancing solution for electric vehicle (EV) chargers**. It eliminates the need for additional vendor-specific hardware (and endless P1-port device clutter) by leveraging existing energy meters and sensors in your Home Assistant setup.
 
-- No more need of custom automation scripts trying to protect your main fuse 
+- No more need of custom automation scripts trying to protect your main fuse
 - No more additional hardware on your P1 port.
 
 ---
@@ -34,32 +33,32 @@
 
 ## Supported Devices
 
-> **⚠️ Important notice:** I can personally only test the DSMR and Easee integration. Support 
+> **⚠️ Important notice:** I can personally only test the DSMR and Easee integration. Support
 > from the community is well appreciated to test other chargers and make contributions where required.
 > Chargers and meters are implemented with best-effort, but often purely based on API documentation and available code.
 
 ### Energy Meters
 
-| Integration | Documentation | Minimum Version |
-|-------------|---------------|----------------|
-| DSMR-compatible meters | [DSMR Smart Meter](https://www.home-assistant.io/integrations/dsmr/) | ? |
-| HomeWizard meters | [HomeWizard](https://www.home-assistant.io/integrations/homewizard/) | ? |
-| AmsLeser.no | [MQTT](https://wiki.amsleser.no/en/HomeAutomation/Home-Assistant) | ? |
-| Custom configurations | Existing Home Assistant sensors | n.a. |
+| Integration            | Documentation                                                        | Minimum Version |
+| ---------------------- | -------------------------------------------------------------------- | --------------- |
+| DSMR-compatible meters | [DSMR Smart Meter](https://www.home-assistant.io/integrations/dsmr/) | ?               |
+| HomeWizard meters      | [HomeWizard](https://www.home-assistant.io/integrations/homewizard/) | ?               |
+| AmsLeser.no            | [MQTT](https://wiki.amsleser.no/en/HomeAutomation/Home-Assistant)    | ?               |
+| Custom configurations  | Existing Home Assistant sensors                                      | n.a.            |
 
-*Supports 1-3 Phase configurations*
+_Supports 1-3 Phase configurations_
 
 ### EV Chargers
 
-| Integration | Documentation | Minimum Version |
-|-------------|---------------|----------------|
-| Easee Chargers | [nordicopen/easee_hass](https://github.com/nordicopen/easee_hass) | v0.9.62 |
-| Zaptec Chargers | [custom-components/zaptec](https://github.com/custom-components/zaptec) | v0.8.0 |
-| Amina S Chargers | [Zigbee2MQTT/amina_S](https://www.zigbee2mqtt.io/devices/amina_S.html) | ? |
-| Lektrico Chargers | [lektrico](https://www.home-assistant.io/integrations/lektrico/) | HA 2024.10+ |
-| Keba Charging Station (BMW Wallbox) | [keba](https://www.home-assistant.io/integrations/keba/) | ? |
+| Integration                         | Documentation                                                           | Minimum Version |
+| ----------------------------------- | ----------------------------------------------------------------------- | --------------- |
+| Easee Chargers                      | [nordicopen/easee_hass](https://github.com/nordicopen/easee_hass)       | v0.9.62         |
+| Zaptec Chargers                     | [custom-components/zaptec](https://github.com/custom-components/zaptec) | v0.8.0          |
+| Amina S Chargers                    | [Zigbee2MQTT/amina_S](https://www.zigbee2mqtt.io/devices/amina_S.html)  | ?               |
+| Lektrico Chargers                   | [lektrico](https://www.home-assistant.io/integrations/lektrico/)        | HA 2024.10+     |
+| Keba Charging Station (BMW Wallbox) | [keba](https://www.home-assistant.io/integrations/keba/)                | ?               |
 
-*Additional chargers to be added...*
+_Additional chargers to be added..._
 
 ## How It Works
 
@@ -70,19 +69,30 @@ Key parts of the process include:
 - **Real-Time Monitoring:**  
   The balancer reads your meter's current consumption on each phase and calculates the remaining “available current”, which is basically the difference between your fuse’s capacity and your current load.
 
-- **Risk-Based Adjustments:**  
-  When the available current drops below zero (indicating potential overload), the algorithm quickly increases an accumulated "risk" factor. Once this risk exceeds a preset threshold, the charger’s current limit is immediately reduced to protect your circuit. 
-  
-  These "risk presets" are derived from the thermal behavior of B- and C-character circuit breakers. The algorithm tolerates brief overcurrent spikes, accumulating risk over time; if these spikes are too frequent or severe, the risk level exceeds a set threshold and the charger’s limit is immediately reduced to protect your fuse. Conversely, when surplus power is detected, the system only restores charging power after confirming that recovery conditions are stable over a configurable time period (a minimum of 15 minutes, extendable during periods of unstable usage).
-  
+- **Risk-Based Adjustments:**
+  The load balancer offers two modes for handling overcurrent situations, configurable based on your specific requirements:
+
+  **Optimised Mode (Default):**
+  When the available current drops below zero (indicating potential overload), the algorithm increases an accumulated "risk" factor. Once this risk exceeds a preset threshold, the charger's current limit is immediately reduced to protect your circuit. These "risk presets" are derived from the thermal behavior of B- and C-character circuit breakers. The algorithm tolerates brief overcurrent spikes, accumulating risk over time; if these spikes are too frequent or severe, the risk level exceeds a set threshold and the charger's limit is immediately reduced to protect your fuse.
+
+  **Conservative Mode:**
+  When "Allow temporary overcurrent" is disabled, the algorithm immediately reduces the charger's current limit as soon as overcurrent is detected, without any tolerance for spikes. This mode is recommended for:
+
+  - Electricity contracts with peak-based billing
+  - Strict grid connection agreements that prohibit any overcurrent
+  - Installations with sensitive circuit breakers
+
+  Regardless of mode, when surplus power is detected, the system only restores charging power after confirming that recovery conditions are stable over a configurable time period (a minimum of 15 minutes, extendable during periods of unstable usage).
+
 - **Per-Phase Balancing:**  
   All calculations are performed separately for each electrical phase, ensuring that the load is balanced and your circuit remains safe under varying conditions. The ability to make use of this depends on your charger's capabilities though.
 
-This adaptive approach allows the EVSE Load Balancer to optimize charging power while preventing overloads, making the most of your available energy, putting the least amount of stress on your charger, car and circuit breaker. 
+This adaptive approach allows the EVSE Load Balancer to optimize charging power while preventing overloads, making the most of your available energy, putting the least amount of stress on your charger, car and circuit breaker.
 
 ## Installation
 
 ### HACS installation
+
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=dirkgroenen&repository=hass-evse-load-balancer)
 
 1. Search for "EVSE Load Balancer" in **HACS > Integrations**
@@ -90,6 +100,7 @@ This adaptive approach allows the EVSE Load Balancer to optimize charging power 
 3. Add the integration via **Settings > Devices & Services > Add Integration** and search for "EVSE Load Balancer."
 
 ### Manual
+
 1. Copy the `custom_components/evse_load_balancer` folder to your Home Assistant `custom_components` directory.
 2. Restart Home Assistant.
 3. Add the integration via **Settings > Devices & Services > Add Integration** and search for "EVSE Load Balancer."
@@ -97,12 +108,15 @@ This adaptive approach allows the EVSE Load Balancer to optimize charging power 
 ## Configuration
 
 During setup, you will be prompted to:
+
 - Select your EV charger.
 - Select your energy meter or provide custom sensors
 - Specify the fuse size and number of phases in your home.
 
 ### Advanced Configuration
+
 For homes without a compatible energy meter, you can manually configure sensors for each phase, including:
+
 - Power consumption (in **kW**)
 - Power production (in **kW**)
 - Voltage
@@ -113,15 +127,16 @@ For homes without a compatible energy meter, you can manually configure sensors 
 
 The integration emits events to Home Assistant's event log whenever the charger current limit is adjusted. These events can be used to create automations or monitor the system's behavior.
 
-
 ## Contributing
 
 Contributions are welcome! If you encounter any issues or have ideas for improvements, feel free to open an issue or submit a pull request on the [GitHub repository](https://github.com/dirkgroenen/hass-evse-load-balancer).
 
-### Adding Charger or Meter support 
+### Adding Charger or Meter support
+
 You can support EVSE Load Balancer by adding and testing additional chargers or meters. A brief overview of the steps required to follow:
 
 1. **Create a New Charger Class**:
+
    - Create a new file in the `chargers` directory (e.g., `my_charger.py`).
    - Implement the `Charger` abstract base class from [`charger.py`](custom_components/evse_load_balancer/chargers/charger.py).
 
@@ -135,6 +150,7 @@ You can support EVSE Load Balancer by adding and testing additional chargers or 
 #### Adding a New Meter
 
 1. **Create a New Meter Class**:
+
    - Create a new file in the `meters` directory (e.g., `my_meter.py`).
    - Implement the `Meter` abstract base class from [`meter.py`](custom_components/evse_load_balancer/meters/meter.py).
 
@@ -144,5 +160,3 @@ You can support EVSE Load Balancer by adding and testing additional chargers or 
 3. **Register the Meter**:
    - Update the `meter_factory` function in [`meters/__init__.py`](custom_components/evse_load_balancer/meters/__init__.py) to include your new meter class.
    - Add logic to detect the new meter based on its manufacturer or other identifiers.
-
-

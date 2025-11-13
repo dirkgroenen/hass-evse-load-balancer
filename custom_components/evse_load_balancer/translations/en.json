@@ -36,7 +36,11 @@
                 "title": "EVSE Load Balancer Options",
                 "data": {
                     "charge_limit_hysteresis": "Hysteresis (Minutes)",
-                    "max_fuse_load_amps": "Max Fuse Load Override (A)"
+                    "max_fuse_load_amps": "Max Fuse Load Override (A)",
+                    "allow_temporary_overcurrent": "Allow temporary overcurrent"
+                },
+                "data_description": {
+                    "allow_temporary_overcurrent": "When enabled, tolerates brief power spikes using risk-based algorithm. Disable for contracts with peak billing or strict overcurrent restrictions."
                 },
                 "description": "Adjust how many minutes the load balancer should wait before increasing a charger's limit. For 'Max Fuse Load Override', an empty value means no override and the initial main fuse size will be used."
             }
