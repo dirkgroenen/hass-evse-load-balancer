@@ -24,6 +24,7 @@ from .const import (
     EVENT_ATTR_ACTION,
     EVENT_ATTR_NEW_LIMITS,
     EVSE_LOAD_BALANCER_COORDINATOR_EVENT,
+    OvercurrentMode,
 )
 from .meters.meter import Meter, Phase
 from .power_allocator import PowerAllocator
@@ -78,8 +79,18 @@ class EVSELoadBalancerCoordinator:
         )
 
         max_limits = dict.fromkeys(self._available_phases, self.fuse_size)
+        allow_temporary_overcurrent = of.EvseLoadBalancerOptionsFlow.get_option_value(
+            self.config_entry,
+            of.OPTION_ALLOW_TEMPORARY_OVERCURRENT,
+        )
+        overcurrent_mode = (
+            OvercurrentMode.OPTIMISED
+            if allow_temporary_overcurrent
+            else OvercurrentMode.CONSERVATIVE
+        )
         self._balancer_algo = OptimisedLoadBalancer(
             max_limits=max_limits,
+            overcurrent_mode=overcurrent_mode,
         )
 
         self._power_allocator = PowerAllocator()

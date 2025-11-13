@@ -45,3 +45,10 @@ class Phase(Enum):
     L1 = "l1"
     L2 = "l2"
     L3 = "l3"
+
+
+class OvercurrentMode(Enum):
+    """Enum for overcurrent handling modes."""
+
+    CONSERVATIVE = "conservative"
+    OPTIMISED = "optimised"
