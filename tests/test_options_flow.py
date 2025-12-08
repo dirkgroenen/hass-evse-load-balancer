@@ -41,13 +41,16 @@ def test_get_option_value_uses_existing_option(mock_config_entry_with_options):
     assert result == 30  # Should use the explicitly set option
 
 
-def test_options_schema_default_inherits_fuse_size(mock_config_entry):
+@pytest.mark.asyncio
+async def test_options_schema_default_inherits_fuse_size(hass, mock_config_entry):
     """Test that the options schema default inherits from CONF_FUSE_SIZE."""
-    options_flow = EvseLoadBalancerOptionsFlow(config_entry=mock_config_entry)
-    schema = options_flow._options_schema()
+    mock_config_entry.add_to_hass(hass)
+
+    # Use the proper HA flow initialization
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
 
     # Get the default value for OPTION_MAX_FUSE_LOAD_AMPS by looking at the key's default
-    for key in schema.schema:
+    for key in result["data_schema"].schema:
         if key.schema == OPTION_MAX_FUSE_LOAD_AMPS:
             assert key.default() == 25  # Should inherit from CONF_FUSE_SIZE
             break
@@ -55,13 +58,16 @@ def test_options_schema_default_inherits_fuse_size(mock_config_entry):
         pytest.fail("OPTION_MAX_FUSE_LOAD_AMPS not found in schema")
 
 
-def test_options_schema_default_uses_existing_option(mock_config_entry_with_options):
+@pytest.mark.asyncio
+async def test_options_schema_default_uses_existing_option(hass, mock_config_entry_with_options):
     """Test that the options schema default uses existing option when set."""
-    options_flow = EvseLoadBalancerOptionsFlow(config_entry=mock_config_entry_with_options)
-    schema = options_flow._options_schema()
+    mock_config_entry_with_options.add_to_hass(hass)
+
+    # Use the proper HA flow initialization
+    result = await hass.config_entries.options.async_init(mock_config_entry_with_options.entry_id)
 
     # Get the default value for OPTION_MAX_FUSE_LOAD_AMPS by looking at the key's default
-    for key in schema.schema:
+    for key in result["data_schema"].schema:
         if key.schema == OPTION_MAX_FUSE_LOAD_AMPS:
             assert key.default() == 30  # Should use the explicitly set option
             break
