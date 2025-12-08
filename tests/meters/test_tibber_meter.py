@@ -58,30 +58,6 @@ def test_get_active_phase_current_none(tibber_meter):
     assert result is None
 
 
-def test_get_active_phase_power_with_voltage_and_current(tibber_meter):
-    # Mock the method calls for power calculation using voltage and current
-    def mock_entity_state(phase, sensor_type):
-        if sensor_type == "power":
-            return 2300  # 2300W total power
-        elif sensor_type == "current":
-            return 10.0  # 10A
-        elif sensor_type == "voltage":
-            return 230.0  # 230V
-        return None
-
-    tibber_meter._get_entity_state_for_phase_sensor = MagicMock(
-        side_effect=mock_entity_state
-    )
-    result = tibber_meter.get_active_phase_power(Phase.L1)
-    assert result == 2.3  # (230V * 10A) / 1000 = 2.3kW
-
-
-def test_get_active_phase_power_none(tibber_meter):
-    tibber_meter._get_entity_state_for_phase_sensor = MagicMock(return_value=None)
-    result = tibber_meter.get_active_phase_power(Phase.L1)
-    assert result is None
-
-
 def test_get_tracking_entities(tibber_meter):
     class Entity:
         def __init__(self, entity_id, key):
@@ -92,13 +68,15 @@ def test_get_tracking_entities(tibber_meter):
     tibber_meter.entities = [
         Entity("sensor.current_l1", "_rt_currentL1"),
         Entity("sensor.voltage_phase1", "_rt_voltagePhase1"),
-        Entity("sensor.power", "_rt_power"),
+        Entity("sensor.current_l2", "_rt_currentL2"),
+        Entity("sensor.voltage_phase2", "_rt_voltagePhase2"),
         Entity("sensor.other", "_rt_other"),
     ]
     result = tibber_meter.get_tracking_entities()
     assert "sensor.current_l1" in result
     assert "sensor.voltage_phase1" in result
-    assert "sensor.power" in result
+    assert "sensor.current_l2" in result
+    assert "sensor.voltage_phase2" in result
     assert "sensor.other" not in result
 
 
@@ -109,7 +87,6 @@ def test_get_entity_map_for_phase_valid(tibber_meter):
         assert isinstance(mapping, dict)
         assert "current" in mapping
         assert "voltage" in mapping
-        assert "power" in mapping
 
 
 def test_get_entity_map_for_phase_invalid(tibber_meter):
@@ -128,18 +105,18 @@ def test_tibber_entity_map_keys():
     assert cf.CONF_PHASE_KEY_TWO in TIBBER_ENTITY_MAP
     assert cf.CONF_PHASE_KEY_THREE in TIBBER_ENTITY_MAP
 
-    # Check that the correct Tibber sensor keys are used
+    # Check that the correct Tibber sensor keys are used (current and voltage only)
     l1_map = TIBBER_ENTITY_MAP[cf.CONF_PHASE_KEY_ONE]
     assert l1_map["current"] == "currentL1"
     assert l1_map["voltage"] == "voltagePhase1"
-    assert l1_map["power"] == "power"
+    assert "power" not in l1_map  # Tibber Pulse doesn't provide per-phase power
 
     l2_map = TIBBER_ENTITY_MAP[cf.CONF_PHASE_KEY_TWO]
     assert l2_map["current"] == "currentL2"
     assert l2_map["voltage"] == "voltagePhase2"
-    assert l2_map["power"] == "power"
+    assert "power" not in l2_map
 
     l3_map = TIBBER_ENTITY_MAP[cf.CONF_PHASE_KEY_THREE]
     assert l3_map["current"] == "currentL3"
     assert l3_map["voltage"] == "voltagePhase3"
-    assert l3_map["power"] == "power"
+    assert "power" not in l3_map
