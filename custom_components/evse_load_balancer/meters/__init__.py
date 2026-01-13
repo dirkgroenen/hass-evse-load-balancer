@@ -10,6 +10,7 @@ from ..const import (  # noqa: TID252
     HA_INTEGRATION_DOMAIN_MQTT,
     METER_DOMAIN_DSMR,
     METER_DOMAIN_HOMEWIZARD,
+    METER_DOMAIN_TIBBER,
     METER_MANUFACTURER_AMSLESER,
     SUPPORTED_METER_DEVICE_DOMAINS,
 )
@@ -18,6 +19,7 @@ from .custom_meter import CustomMeter
 from .dsmr_meter import DsmrMeter
 from .homewizard_meter import HomeWizardMeter
 from .meter import Meter
+from .tibber_meter import TibberMeter
 
 if TYPE_CHECKING:
     from homeassistant.helpers.device_registry import DeviceEntry
@@ -61,6 +63,8 @@ async def meter_factory(
         and device.manufacturer == METER_MANUFACTURER_AMSLESER
     ):
         return AmsleserMeter(hass, config_entry, device)
+    if manufacturer == METER_DOMAIN_TIBBER:
+        return TibberMeter(hass, config_entry, device)
 
     msg = f"Unsupported manufacturer: {device.identifiers}"
     raise ValueError(msg)

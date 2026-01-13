@@ -35,14 +35,8 @@ async def validate_init_input(
 class EvseLoadBalancerOptionsFlow(OptionsFlow):
     """Handle an options flow for evse-load-balancer."""
 
-    def __init__(self, config_entry: ConfigEntry | None = None) -> None:
-        """
-        Initialize options flow.
-
-        @see https://developers.home-assistant.io/blog/2024/11/12/options-flow/
-        """
-        if config_entry is not None:
-            self.config_entry = config_entry
+    # No custom __init__ needed - config_entry is set by the framework
+    # @see https://developers.home-assistant.io/blog/2024/11/12/options-flow/
 
     @staticmethod
     def get_option_value(config_entry: ConfigEntry, key: str) -> Any:

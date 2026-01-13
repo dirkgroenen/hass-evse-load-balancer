@@ -21,9 +21,5 @@ class Meter(ABC):
         """Return the available current on a given phase."""
 
     @abstractmethod
-    def get_active_phase_power(self, phase: Phase) -> float | None:
-        """Return the active power on a given phase."""
-
-    @abstractmethod
     def get_tracking_entities(self) -> list[str]:
         """Return a list of entity IDs that should be tracked for the meter."""

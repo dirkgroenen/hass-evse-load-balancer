@@ -44,6 +44,7 @@
 | DSMR-compatible meters | [DSMR Smart Meter](https://www.home-assistant.io/integrations/dsmr/) | ?               |
 | HomeWizard meters      | [HomeWizard](https://www.home-assistant.io/integrations/homewizard/) | ?               |
 | AmsLeser.no            | [MQTT](https://wiki.amsleser.no/en/HomeAutomation/Home-Assistant)    | ?               |
+| Tibber Pulse           | [Tibber](https://www.home-assistant.io/integrations/tibber/)         | ?               |
 | Custom configurations  | Existing Home Assistant sensors                                      | n.a.            |
 
 _Supports 1-3 Phase configurations_
