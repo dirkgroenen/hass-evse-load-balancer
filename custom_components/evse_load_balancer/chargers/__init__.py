@@ -12,6 +12,8 @@ from .easee_charger import EaseeCharger
 from .keba_charger import KebaCharger
 from .lektrico_charger import LektricoCharger
 from .zaptec_charger import ZaptecCharger
+from .wallbox_charger import WallboxCharger
+
 
 if TYPE_CHECKING:
     from homeassistant.helpers.device_registry import DeviceEntry
@@ -34,6 +36,7 @@ async def charger_factory(
         ZaptecCharger,
         KebaCharger,
         LektricoCharger,
+        WallboxCharger,
     ]:
         if charger_cls.is_charger_device(device):
             return charger_cls(hass, config_entry, device)
