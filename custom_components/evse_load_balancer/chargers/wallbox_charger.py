@@ -6,8 +6,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntry
 
-from ..const import CHARGER_DOMAIN_WALLBOX, Phase
-from ..ha_device import HaDevice
+from ..const import CHARGER_DOMAIN_WALLBOX, Phase  # noqa: TID252
+from ..ha_device import HaDevice  # noqa: TID252
 from .charger import Charger, PhaseMode
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,20 +17,21 @@ class WallboxEntityMap:
     """
     Map Wallbox entities to their respective translation keys.
 
-    These translation keys correspond with what the official Wallbox
-    integration registers (see its `number` and `sensor` platforms).
+    https://github.com/home-assistant/core/blob/dev/homeassistant/components/wallbox/number.py
+    https://github.com/home-assistant/core/blob/dev/homeassistant/components/wallbox/sensor.py
     """
 
     DynamicChargerLimit = "maximum_charging_current"
-    MaxChargerLimit = "maximum_charging_current"
+    MaxChargerLimit = "max_available_power"
     Status = "status_description"
 
 
 class WallboxStatusMap:
-    """Normalized status values used by the adapter.
+    """
+    Normalized status values used by the adapter.
 
     Values mirror the Wallbox integration `ChargerStatus` strings.
-    See Home Assistant `wallbox.const.ChargerStatus` for full list.
+    https://github.com/home-assistant/core/blob/dev/homeassistant/components/wallbox/const.py
     """
 
     Charging = "Charging"
@@ -66,44 +67,38 @@ class WallboxCharger(HaDevice, Charger):
 
     @staticmethod
     def is_charger_device(device: DeviceEntry) -> bool:
-        """Check if the given device is a Wallbox charger.
-
-        The Wallbox integration registers devices with the domain "wallbox"
-        as the identifier in the device registry.
-        """
-        return any(id_domain == CHARGER_DOMAIN_WALLBOX for id_domain, _ in device.identifiers)
+        """Check if the given device is a Wallbox charger."""
+        return any(
+            id_domain == CHARGER_DOMAIN_WALLBOX
+            for id_domain, _ in device.identifiers
+        )
 
     async def async_setup(self) -> None:
         """Set up the charger (no-op)."""
 
     def set_phase_mode(self, mode: PhaseMode, _phase: Phase | None = None) -> None:
-        """Wallbox number entity controls global charging current; phase mode is not managed here."""
+        """Set the phase mode (no-op for Wallbox)."""
         if mode not in PhaseMode:
-            raise ValueError("Invalid mode. Must be 'single' or 'multi'.")
+            msg = "Invalid mode. Must be 'single' or 'multi'."
+            raise ValueError(msg)
 
     def has_synced_phase_limits(self) -> bool:
         """Wallbox number entity exposes a single max current value (global)."""
-        return False
+        return True
 
     async def set_current_limit(self, limit: dict[Phase, int]) -> None:
-        """Set the charger current limit.
+        """
+        Set the charger current limit.
 
         The official Wallbox integration exposes the charging current as a
-        `number` entity. We update that entity using the common `number.set_value`
-        service with the entity_id and a numeric `value`.
+        `number` entity. We update that entity using the common
+        `number.set_value` service with the entity_id and a numeric `value`.
         """
-        # Wallbox exposes a single configurable current; be conservative and use lowest phase value
         amps = int(min(limit.values()))
 
-        try:
-            entity_id = self._get_entity_id_by_translation_key(
-                WallboxEntityMap.DynamicChargerLimit
-            )
-        except ValueError:
-            _LOGGER.error(
-                "Wallbox dynamic limit entity not found for device %s", self.device_entry.id
-            )
-            return
+        entity_id = self._get_entity_id_by_translation_key(
+            WallboxEntityMap.DynamicChargerLimit
+        )
 
         await self.hass.services.async_call(
             domain="number",
@@ -131,7 +126,9 @@ class WallboxCharger(HaDevice, Charger):
 
     def get_max_current_limit(self) -> dict[Phase, int] | None:
         """Return the configured maximum charging current."""
-        state = self._get_entity_state_by_translation_key(WallboxEntityMap.MaxChargerLimit)
+        state = self._get_entity_state_by_translation_key(
+            WallboxEntityMap.MaxChargerLimit
+        )
         if state is None:
             _LOGGER.warning(
                 "Wallbox max charger limit not available for device %s",
@@ -148,31 +145,35 @@ class WallboxCharger(HaDevice, Charger):
         return self._get_entity_state_by_translation_key(WallboxEntityMap.Status)
 
     def car_connected(self) -> bool:
+        """Return whether a car is connected to the charger."""
         status = self._get_status()
-        # `Ready` explicitly means no car connected (confirmed by user).
-        # Consider the car connected in statuses that indicate a vehicle
-        # is physically present even if it is not actively charging.
         return status in (
             WallboxStatusMap.Charging,
-            WallboxStatusMap.WaitingForCarDemand,
-            WallboxStatusMap.LockedCarConnected,
-            WallboxStatusMap.Paused,
             WallboxStatusMap.Discharging,
+            WallboxStatusMap.Paused,
+            WallboxStatusMap.Scheduled,
+            WallboxStatusMap.WaitingForCarDemand,
+            WallboxStatusMap.Waiting,
+            WallboxStatusMap.LockedCarConnected,
+            WallboxStatusMap.WaitingInQueuePowerSharing,
+            WallboxStatusMap.WaitingInQueuePowerBoost,
+            WallboxStatusMap.WaitingInQueueEcoSmart,
+            WallboxStatusMap.WaitingMidFailed,
+            WallboxStatusMap.WaitingMidSafety,
         )
 
     def can_charge(self) -> bool:
+        """Return whether the charger can deliver charge."""
         status = self._get_status()
-        # The charger can accept or deliver charge when it is actively
-        # charging or when a car is connected and waiting for demand.
-        # We treat `READY` as no car connected and therefore not able to
-        # charge until a car is present.
         return status in (
             WallboxStatusMap.Charging,
+            WallboxStatusMap.Discharging,
             WallboxStatusMap.WaitingForCarDemand,
             WallboxStatusMap.Paused,
         )
 
     def is_charging(self) -> bool:
+        """Return whether the charger is actively charging."""
         status = self._get_status()
         return status == WallboxStatusMap.Charging
 
