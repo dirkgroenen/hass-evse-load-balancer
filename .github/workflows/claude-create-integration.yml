@@ -2,13 +2,14 @@ name: Claude Code
 
 on:
   issues:
-    types: [opened, assigned]
+    types: [opened, labeled]
   issue_comment:
     types: [created]
 
 jobs:
   claude:
     runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' || contains(github.event.issue.labels.*.name, 'integration-request')
     permissions:
       contents: write
       pull-requests: write
@@ -27,20 +28,34 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
           prompt: |
-            Read the issue and determine if it's requesting a new Charger or Meter integration.
-                                                                                                                                            
-            If YES:
-            1. Extract these details from the issue:
-              - Type: Charger or Meter
-              - Device/brand name (e.g., "Easee", "Zaptec", "HomeWizard")
-              - Home Assistant integration URL and Github Source
-            2. If any critical details are missing, ask the issue author for clarification via a comment
-            3. Run the /create-integration skill with the extracted details
-            4. After the skill completes, commit all changes with message: "Add {name} {type} integration"
-            5. Create a PR with title: "Add {name} {type} integration"
-            6. Request @dirkgroenen as reviewer 
+            Parse this integration request issue (issue #${{ github.event.issue.number }}) and extract structured data from the form fields:
 
-            If NO (not a charger/meter request):
-            - Exit without making changes
+            **Required Fields:**
+            - Integration Type (look for "### Integration Type" section)
+            - Device/Brand Name (look for "### Device/Brand Name" section)
+            - Home Assistant Integration URL (look for "### Home Assistant Integration URL" section)
+            - Home Assistant GitHub Source (look for "### Home Assistant GitHub Source" section)
+
+            **Optional Fields:**
+            - Additional Context (look for "### Additional Context" section)
+
+            **Implementation Steps:**
+            1. Validate all required fields are present in the issue body
+            2. If any required fields are missing, comment on the issue asking for clarification
+            3. If all fields are valid:
+               a. Run the /create-integration skill with the extracted details
+               b. After the skill completes, commit all changes with message: "Add {name} {type} integration"
+               c. Create a PR with:
+                  - Title: "Add {name} {type} integration"
+                  - Label: "{type}:{lowercase_name}" (e.g., "charger:easee" or "meter:homewizard")
+                  - Reviewer: @dirkgroenen
+               d. Comment on the original issue #${{ github.event.issue.number }} with a link to the created PR
+
+            **PR Comment Format:**
+            ```
+            Integration PR created: #{pr_number}
+
+            The integration skeleton has been generated. Please review the implementation and test with your device.
+            ```
 
           claude_args: "--allowed-tools Skill Write Edit Bash(git *) Bash(gh *)"
