@@ -3,13 +3,11 @@ name: Claude Code
 on:
   issues:
     types: [opened, labeled]
-  issue_comment:
-    types: [created]
 
 jobs:
   claude:
     runs-on: ubuntu-latest
-    if: github.event_name == 'issue_comment' || contains(github.event.issue.labels.*.name, 'integration-request')
+    if: contains(github.event.issue.labels.*.name, 'integration-request')
     permissions:
       contents: write
       pull-requests: write
