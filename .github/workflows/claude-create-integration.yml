@@ -97,5 +97,5 @@ jobs:
             - Always comment on issue before stopping
             - Use gh CLI for GitHub operations
 
-          claude_args: "--allowedTools 'Skill,Edit,MultiEdit,Write,Read,Glob,Grep,LS,Bash(git:*),Bash(pytest:*),Bash(ruff:*),Bash(gh:*)'"
+          claude_args: "--allowedTools 'Skill,Edit,MultiEdit,Write,Read,Glob,Grep,LS,Bash(git:*),Bash(pytest:*),Bash(ruff:*),Bash(gh:*),WebFetch,WebSearch'"
           show_full_output: true
