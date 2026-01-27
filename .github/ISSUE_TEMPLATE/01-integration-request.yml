@@ -1,0 +1,71 @@
+name: Integration Request
+description: Request a new charger or meter integration for EVSE Load Balancer
+title: "[Integration]: "
+labels: ["integration-request", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for requesting a new integration! 
+        Please provide as much detail as possible to help create the integration correctly.
+
+  - type: dropdown
+    id: integration-type
+    attributes:
+      label: Integration Type
+      description: Is this a charger or meter integration?
+      options:
+        - Charger
+        - Meter
+    validations:
+      required: true
+
+  - type: input
+    id: device-name
+    attributes:
+      label: Device/Brand Name
+      description: The name of the device or brand (e.g., "Easee", "Zaptec", "HomeWizard")
+      placeholder: "ex. Wallbox"
+    validations:
+      required: true
+
+  - type: input
+    id: ha-integration-url
+    attributes:
+      label: Home Assistant Integration URL
+      description: Link to the device's Home Assistant integration page
+      placeholder: "ex. https://www.home-assistant.io/integrations/wallbox/"
+    validations:
+      required: true
+
+  - type: input
+    id: ha-github-source
+    attributes:
+      label: Home Assistant GitHub Source
+      description: Link to the integration's source code in the Home Assistant core repository
+      placeholder: "ex. https://github.com/home-assistant/core/tree/dev/homeassistant/components/wallbox"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any additional information that might be helpful (MQTT details, special requirements, etc.)
+      placeholder: |
+        - Is this an MQTT-based device?
+        - What manufacturer name appears in MQTT discovery?
+        - Any special considerations?
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmation
+      description: Please confirm you've checked the following
+      options:
+        - label: I have checked that this integration doesn't already exist in the repository
+          required: true
+        - label: I have provided accurate URLs to the Home Assistant integration
+          required: true

@@ -1,0 +1,41 @@
+name: General Issue
+description: Questions, feature requests, documentation, or other general topics
+title: ""
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for questions, feature requests, documentation improvements, or anything else that doesn't fit the other categories.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: What type of issue is this?
+      options:
+        - Question
+        - Feature Request
+        - Documentation
+        - Discussion
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Provide details about your question, feature request, or topic
+      placeholder: Describe your question or suggestion in detail
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples that might be helpful
+      placeholder: Any additional information
+    validations:
+      required: false

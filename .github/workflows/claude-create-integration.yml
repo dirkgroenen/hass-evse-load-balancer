@@ -1,0 +1,61 @@
+name: Claude Code
+
+on:
+  issues:
+    types: [opened, labeled]
+  issue_comment:
+    types: [created]
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' || contains(github.event.issue.labels.*.name, 'integration-request')
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude on Issues
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          prompt: |
+            Parse this integration request issue (issue #${{ github.event.issue.number }}) and extract structured data from the form fields:
+
+            **Required Fields:**
+            - Integration Type (look for "### Integration Type" section)
+            - Device/Brand Name (look for "### Device/Brand Name" section)
+            - Home Assistant Integration URL (look for "### Home Assistant Integration URL" section)
+            - Home Assistant GitHub Source (look for "### Home Assistant GitHub Source" section)
+
+            **Optional Fields:**
+            - Additional Context (look for "### Additional Context" section)
+
+            **Implementation Steps:**
+            1. Validate all required fields are present in the issue body
+            2. If any required fields are missing, comment on the issue asking for clarification
+            3. If all fields are valid:
+               a. Run the /create-integration skill with the extracted details
+               b. After the skill completes, commit all changes with message: "Add {name} {type} integration"
+               c. Create a PR with:
+                  - Title: "Add {name} {type} integration"
+                  - Label: "{type}:{lowercase_name}" (e.g., "charger:easee" or "meter:homewizard")
+                  - Reviewer: @dirkgroenen
+               d. Comment on the original issue #${{ github.event.issue.number }} with a link to the created PR
+
+            **PR Comment Format:**
+            ```
+            Integration PR created: #{pr_number}
+
+            The integration skeleton has been generated. Please review the implementation and test with your device.
+            ```
+
+          claude_args: "--allowed-tools Skill Write Edit Bash(git *) Bash(gh *)"
