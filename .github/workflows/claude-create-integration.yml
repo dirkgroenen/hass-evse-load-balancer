@@ -42,59 +42,60 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          settings: |
-            {
-              "GH_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
-            }
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
           prompt: |
-            Parse this integration request issue (issue #${{ github.event.issue.number }}) and extract structured data from the form fields:
+            NON-INTERACTIVE MODE: You cannot ask questions. Comment on issue and stop on any error.
 
-            **Required Fields:**
-            - Integration Type (look for "### Integration Type" section)
-            - Device/Brand Name (look for "### Device/Brand Name" section)
-            - Home Assistant Integration URL (look for "### Home Assistant Integration URL" section)
-            - Home Assistant GitHub Source (look for "### Home Assistant GitHub Source" section)
+            TASK: Create integration from issue #${{ github.event.issue.number }}
 
-            **Optional Fields:**
-            - Additional Context (look for "### Additional Context" section)
+            1. READ ISSUE
+            Run: `gh issue view ${{ github.event.issue.number }} --json body --jq .body`
+            Extract from markdown sections: Integration Type, Device/Brand Name, HA GitHub Source
 
-            **Implementation Steps:**
-            1. Validate all required fields are present in the issue body
-            2. If any required fields are missing, comment on the issue asking for clarification
-            3. If all fields are valid:
-               a. Run the /create-integration skill with the extracted details
-               b. After the skill completes, verify the implementation:
-                  - Run linting: `ruff check custom_components/`
-                  - Run tests for the new integration: `pytest tests/{type}s/test_{lowercase_name}_{type}.py -v`
-                  - Fix any linting errors or test failures before proceeding
-               c. After verification passes, perform these git operations:
-                  - Create a new branch: `git checkout -b add-{lowercase_name}-{type}-{issue_number}`
-                  - Stage all new/modified files: `git add .`
-                  - Commit with message: `git commit -m "Add {name} {type} integration\n\nResolves #{issue_number}\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"`
-                  - Push the branch: `git push -u origin add-{lowercase_name}-{type}-{issue_number}`
-               d. Create a PR using gh CLI:
-                  - Command: `gh pr create --title "Add {name} {type} integration" --body "Resolves #{issue_number}\n\nGenerated integration skeleton for {name} {type}.\n\n🤖 Generated with Claude Code" --label "{type}" --reviewer dirkgroenen`
-               e. Comment on the original issue #${{ github.event.issue.number }} with the PR link using `gh issue comment`
+            2. VALIDATE
+            If type, name, or GitHub source missing → comment "Missing: [fields]" → STOP
 
-            **PR Comment Format:**
-            ```
-            Integration PR created: #{pr_number}
+            3. RUN SKILL
+            Convert to snake_case: "Home Wizard" → "homewizard"
+            `/create-integration <type> <snake_case_name> --github-source "<url>" --non-interactive`
 
-            The integration skeleton has been generated. Please review the implementation and test with your device.
+            4. CHECK OUTPUT
+            If STATUS: FAILED → comment with ERROR_MESSAGE → STOP
+            If STATUS: SUCCESS → continue
+
+            5. VALIDATE CODE
+            `ruff check custom_components/ && pytest tests/<type>s/test_<name>_<type>.py -v`
+            If fails → fix with `ruff check --fix` → retest
+            If still fails → comment failures → STOP
+
+            6. COMMIT & PUSH
+            ```bash
+            git checkout -b feature/<name>-<type>-${{ github.event.issue.number }}
+            git add .
+            git commit -m "Add <name> <type> integration
+
+            Resolves #${{ github.event.issue.number }}"
+            git push -u origin feature/<name>-<type>-${{ github.event.issue.number }}
             ```
 
-            **Environment Info:**
-            - Python 3.13 is installed
-            - Development dependencies are available
-            - You can run: pytest, ruff check, ruff format
-            - Git is configured for commits
-            - gh CLI is available for PR operations
+            7. CREATE PR
+            ```bash
+            gh pr create --title "Add <name> <type> integration" \
+              --body "Resolves #${{ github.event.issue.number }}
 
-            **Error Handling:**
-            If you encounter any errors during implementation:
-            1. Report the specific error in a comment on issue #${{ github.event.issue.number }}
-            2. Include what step failed and the error message
-            3. Do not create a PR if the implementation is incomplete
+            Auto-generated skeleton. See skill output for inferred parameters.
+            Tests passed. Requires hardware validation." \
+              --label "<type>" --reviewer dirkgroenen
+            ```
 
-          claude_args: "--allowed-tools Skill Write Edit Bash(git *) Bash(gh *) Bash(pytest *) Bash(ruff *)"
+            8. REPORT
+            `gh issue comment ${{ github.event.issue.number }} -b "✅ PR created: #<pr_number>"`
+
+            CONSTRAINTS:
+            - Never use AskUserQuestion
+            - Always comment on issue before stopping
+            - Use gh CLI for GitHub operations
+
+          claude_args: "--allowedTools 'Skill,Edit,MultiEdit,Write,Read,Glob,Grep,LS,Bash(git:*),Bash(pytest:*),Bash(ruff:*),Bash(gh:*)'"
+          show_full_output: true
