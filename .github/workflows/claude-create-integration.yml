@@ -57,3 +57,4 @@ jobs:
             ```
 
           claude_args: "--allowed-tools Skill Write Edit Bash(git *) Bash(gh *)"
+          show_full_output: true
