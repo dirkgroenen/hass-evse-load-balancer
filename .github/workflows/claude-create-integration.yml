@@ -19,11 +19,32 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_dev.txt
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "Claude Code Bot"
+          git config --global user.email "claude-code-bot@users.noreply.github.com"
+
       - name: Run Claude on Issues
         id: claude
         uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          settings: |
+            {
+              "GH_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+            }
 
           prompt: |
             Parse this integration request issue (issue #${{ github.event.issue.number }}) and extract structured data from the form fields:
@@ -42,12 +63,18 @@ jobs:
             2. If any required fields are missing, comment on the issue asking for clarification
             3. If all fields are valid:
                a. Run the /create-integration skill with the extracted details
-               b. After the skill completes, commit all changes with message: "Add {name} {type} integration"
-               c. Create a PR with:
-                  - Title: "Add {name} {type} integration"
-                  - Label: "{type}:{lowercase_name}" (e.g., "charger:easee" or "meter:homewizard")
-                  - Reviewer: @dirkgroenen
-               d. Comment on the original issue #${{ github.event.issue.number }} with a link to the created PR
+               b. After the skill completes, verify the implementation:
+                  - Run linting: `ruff check custom_components/`
+                  - Run tests for the new integration: `pytest tests/{type}s/test_{lowercase_name}_{type}.py -v`
+                  - Fix any linting errors or test failures before proceeding
+               c. After verification passes, perform these git operations:
+                  - Create a new branch: `git checkout -b add-{lowercase_name}-{type}-{issue_number}`
+                  - Stage all new/modified files: `git add .`
+                  - Commit with message: `git commit -m "Add {name} {type} integration\n\nResolves #{issue_number}\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"`
+                  - Push the branch: `git push -u origin add-{lowercase_name}-{type}-{issue_number}`
+               d. Create a PR using gh CLI:
+                  - Command: `gh pr create --title "Add {name} {type} integration" --body "Resolves #{issue_number}\n\nGenerated integration skeleton for {name} {type}.\n\n🤖 Generated with Claude Code" --label "{type}" --reviewer dirkgroenen`
+               e. Comment on the original issue #${{ github.event.issue.number }} with the PR link using `gh issue comment`
 
             **PR Comment Format:**
             ```
@@ -56,5 +83,17 @@ jobs:
             The integration skeleton has been generated. Please review the implementation and test with your device.
             ```
 
-          claude_args: "--allowed-tools Skill Write Edit Bash(git *) Bash(gh *)"
-          show_full_output: true
+            **Environment Info:**
+            - Python 3.13 is installed
+            - Development dependencies are available
+            - You can run: pytest, ruff check, ruff format
+            - Git is configured for commits
+            - gh CLI is available for PR operations
+
+            **Error Handling:**
+            If you encounter any errors during implementation:
+            1. Report the specific error in a comment on issue #${{ github.event.issue.number }}
+            2. Include what step failed and the error message
+            3. Do not create a PR if the implementation is incomplete
+
+          claude_args: "--allowed-tools Skill Write Edit Bash(git *) Bash(gh *) Bash(pytest *) Bash(ruff *)"
