@@ -1,6 +1,6 @@
 name: Integration Request
 description: Request a new charger or meter integration for EVSE Load Balancer
-title: "[Integration]: "
+title: "[CHARGER/METER]: "
 labels: ["integration-request", "enhancement"]
 body:
   - type: markdown
