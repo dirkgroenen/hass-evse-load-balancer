@@ -69,8 +69,7 @@ class WallboxCharger(HaDevice, Charger):
     def is_charger_device(device: DeviceEntry) -> bool:
         """Check if the given device is a Wallbox charger."""
         return any(
-            id_domain == CHARGER_DOMAIN_WALLBOX
-            for id_domain, _ in device.identifiers
+            id_domain == CHARGER_DOMAIN_WALLBOX for id_domain, _ in device.identifiers
         )
 
     async def async_setup(self) -> None:
