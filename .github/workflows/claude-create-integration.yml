@@ -1,0 +1,46 @@
+name: Claude Code
+
+on:
+  issues:
+    types: [opened, assigned]
+  issue_comment:
+    types: [created]
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude on Issues
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          prompt: |
+            Read the issue and determine if it's requesting a new Charger or Meter integration.
+                                                                                                                                            
+            If YES:
+            1. Extract these details from the issue:
+              - Type: Charger or Meter
+              - Device/brand name (e.g., "Easee", "Zaptec", "HomeWizard")
+              - Home Assistant integration URL and Github Source
+            2. If any critical details are missing, ask the issue author for clarification via a comment
+            3. Run the /create-integration skill with the extracted details
+            4. After the skill completes, commit all changes with message: "Add {name} {type} integration"
+            5. Create a PR with title: "Add {name} {type} integration"
+            6. Request @dirkgroenen as reviewer 
+
+            If NO (not a charger/meter request):
+            - Exit without making changes
+
+          claude_args: "--allowed-tools Skill Write Edit Bash(git *) Bash(gh *)"
