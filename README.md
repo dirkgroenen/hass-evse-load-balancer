@@ -58,6 +58,7 @@ _Supports 1-3 Phase configurations_
 | Amina S Chargers                    | [Zigbee2MQTT/amina_S](https://www.zigbee2mqtt.io/devices/amina_S.html)  | ?               |
 | Lektrico Chargers                   | [lektrico](https://www.home-assistant.io/integrations/lektrico/)        | HA 2024.10+     |
 | Keba Charging Station (BMW Wallbox) | [keba](https://www.home-assistant.io/integrations/keba/)                | ?               |
+| Peblar Chargers                     | [peblar](https://www.home-assistant.io/integrations/peblar/)            | HA 2025.1+      |
 
 _Additional chargers to be added..._
 

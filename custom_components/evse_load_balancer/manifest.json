@@ -6,6 +6,7 @@
     "easee",
     "dsmr",
     "mqtt",
+    "peblar",
     "zigbee2mqtt",
     "esphome"
   ],
