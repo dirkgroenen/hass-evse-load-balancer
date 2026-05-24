@@ -58,6 +58,7 @@ _Supports 1-3 Phase configurations_
 | Amina S Chargers                    | [Zigbee2MQTT/amina_S](https://www.zigbee2mqtt.io/devices/amina_S.html)  | ?               |
 | Lektrico Chargers                   | [lektrico](https://www.home-assistant.io/integrations/lektrico/)        | HA 2024.10+     |
 | Keba Charging Station (BMW Wallbox) | [keba](https://www.home-assistant.io/integrations/keba/)                | ?               |
+| OCPP-compatible Chargers            | [lbbrhzn/ocpp](https://github.com/lbbrhzn/ocpp)                         | v0.8.0          |
 
 _Additional chargers to be added..._
 
