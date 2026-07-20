@@ -89,10 +89,19 @@ def test_conservative_mode_immediate_reduction():
 
     for phase in Phase:
         assert limits_one[phase] == 20
-        assert limits_two[phase] == 15
+        # Conservative mode emits the real negative deficit immediately so the
+        # PowerAllocator distributes the cut across the chargers.
+        assert limits_two[phase] == -5
 
 
-def test_conservative_mode_never_goes_below_zero():
+def test_conservative_mode_emits_negative_deficit():
+    """Conservative mode must surface a negative availability during overcurrent.
+
+    Regression test: previously the overcurrent branch clamped at 0
+    (``max(0, phase_limit + avail)``) and therefore never returned a negative
+    value, so PowerAllocator's ``_distribute_cuts`` was never triggered and the
+    charger limit was never reduced.
+    """
     lb = OptimisedLoadBalancer(
         max_limits=dict.fromkeys(Phase, 25),
         overcurrent_mode=OvercurrentMode.CONSERVATIVE,
@@ -105,7 +114,10 @@ def test_conservative_mode_never_goes_below_zero():
 
     for phase in Phase:
         assert limits_one[phase] == 5
-        assert limits_two[phase] == 0
+        # A sustained overcurrent must produce a negative availability (a cut),
+        # not a clamped-at-zero value.
+        assert limits_two[phase] == -10
+        assert limits_two[phase] < 0
 
 
 def test_conservative_mode_allows_increases():
@@ -123,7 +135,9 @@ def test_conservative_mode_allows_increases():
 
     for phase in Phase:
         assert limits_one[phase] == 10
-        assert limits_two[phase] == 5
+        # Overcurrent is emitted as a negative deficit (immediate cut)...
+        assert limits_two[phase] == -5
+        # ...and recovery still surfaces the available surplus.
         assert limits_three[phase] == 15
 
 
@@ -170,5 +184,8 @@ def test_conservative_vs_optimised_mode_behavior():
     for phase in Phase:
         assert limits_conservative_one[phase] == 20
         assert limits_optimised_one[phase] == 20
-        assert limits_conservative_two[phase] == 17
+        # Conservative reduces immediately, emitting the negative deficit, while
+        # optimised tolerates the temporary overcurrent until trip risk builds.
+        assert limits_conservative_two[phase] == -3
+        assert limits_conservative_two[phase] < limits_optimised_two[phase]
         assert limits_optimised_two[phase] == 20

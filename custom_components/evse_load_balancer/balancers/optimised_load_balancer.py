@@ -88,8 +88,12 @@ class PhaseMonitor:
                     self._cumulative_trip_risk = 0.0
                     self.phase_limit = avail
             else:
+                # Conservative mode: reduce immediately by emitting the real
+                # negative deficit so the PowerAllocator distributes cuts.
+                # This is the safer (more aggressive) mode, cutting right away
+                # instead of waiting for the cumulative trip risk to build up.
                 self._cumulative_trip_risk = 0.0
-                self.phase_limit = max(0, self.phase_limit + avail)
+                self.phase_limit = avail
         else:
             risk_decay = self._risk_decay_per_second * elapsed
             self._cumulative_trip_risk = max(
