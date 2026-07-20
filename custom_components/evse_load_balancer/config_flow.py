@@ -28,7 +28,9 @@ from .const import (
     CHARGER_DOMAIN_KEBA,
     CHARGER_DOMAIN_LEKTRICO,
     CHARGER_DOMAIN_ZAPTEC,
+    CHARGER_DOMAIN_ZHA,
     CHARGER_MANUFACTURER_AMINA,
+    CHARGER_MANUFACTURER_AMINA_ZHA,
     DOMAIN,
     HA_INTEGRATION_DOMAIN_MQTT,
     SUPPORTED_METER_DEVICES,
@@ -60,6 +62,17 @@ _charger_device_filter_list: list[dict[str, str]] = [
     {"integration": CHARGER_DOMAIN_LEKTRICO},
     {
         "integration": HA_INTEGRATION_DOMAIN_MQTT,
+        "manufacturer": CHARGER_MANUFACTURER_AMINA,
+    },
+    # ZHA-connected Amina S (via the amina_s_zha_quirk). The device selector
+    # matches the manufacturer string verbatim, so both the lowercase form that
+    # real units report and the capitalised spec form are listed.
+    {
+        "integration": CHARGER_DOMAIN_ZHA,
+        "manufacturer": CHARGER_MANUFACTURER_AMINA_ZHA,
+    },
+    {
+        "integration": CHARGER_DOMAIN_ZHA,
         "manufacturer": CHARGER_MANUFACTURER_AMINA,
     },
 ]
