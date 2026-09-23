@@ -13,6 +13,13 @@ HA_INTEGRATION_DOMAIN_MQTT = "mqtt"
 Z2M_DEVICE_IDENTIFIER_DOMAIN = "zigbee2mqtt"
 CHARGER_MANUFACTURER_AMINA = "Amina Distribution AS"
 
+# ZHA-connected Amina S (via the attaxia/amina_s_zha_quirk). Real units report
+# the manufacturer string in lowercase, while the spec/Z2M uses the capitalised
+# form - both are matched (case-insensitively in the charger, explicitly in the
+# config-flow device filter which matches verbatim).
+CHARGER_DOMAIN_ZHA = "zha"
+CHARGER_MANUFACTURER_AMINA_ZHA = "amina distribution AS"
+
 METER_DOMAIN_DSMR = "dsmr"
 METER_DOMAIN_HOMEWIZARD = "homewizard"
 METER_MANUFACTURER_AMSLESER = "amsleser.no"

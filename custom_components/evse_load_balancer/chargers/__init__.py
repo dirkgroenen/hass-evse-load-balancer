@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
 from .amina_charger import AminaCharger
+from .amina_zha_charger import AminaZhaCharger
 from .charger import Charger
 from .easee_charger import EaseeCharger
 from .keba_charger import KebaCharger
@@ -30,6 +31,7 @@ async def charger_factory(
 
     for charger_cls in [
         AminaCharger,
+        AminaZhaCharger,
         EaseeCharger,
         ZaptecCharger,
         KebaCharger,
