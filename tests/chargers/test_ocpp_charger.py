@@ -555,6 +555,7 @@ async def test_session_resume_without_restart(session_charger, mock_hass, states
     states[STATUS_CONN] = OcppStatusMap.Charging
     await run_scheduled(session_charger)
     assert _switch_calls(mock_hass) == []
+    assert session_charger._resume_needs_restart is False
 
 
 async def test_session_resume_restarts_and_rebinds(
@@ -575,6 +576,42 @@ async def test_session_resume_restarts_and_rebinds(
     await run_scheduled(session_charger)
     assert _switch_calls(mock_hass) == ["turn_off", "turn_on"]
     assert _number_calls(mock_hass) == [(SESSION, 10), (SESSION, 10)]
+    assert session_charger._resume_needs_restart is True
+
+
+async def test_session_resume_restarts_immediately_once_learned(
+    session_charger, mock_hass, states, fast
+):
+    """After one needed restart, resume skips the grace and the old-tx write."""
+    session_charger._resume_needs_restart = True
+    states[STATUS_CONN] = OcppStatusMap.SuspendedEVSE
+    states[SESSION] = "0"
+    await session_charger.set_current_limit(_limit(10))
+    assert _number_calls(mock_hass) == []  # nothing sent to the old transaction
+    assert session_charger.get_current_limit() == _limit(10)  # no override
+
+    async def _calls(**kwargs):
+        if kwargs["domain"] == "switch" and kwargs["service"] == "turn_on":
+            states[TX] = "1002"
+            states[STATUS_CONN] = OcppStatusMap.Charging
+            states[SESSION] = "unknown"
+
+    mock_hass.services.async_call.side_effect = _calls
+    await run_scheduled(session_charger)
+    assert _switch_calls(mock_hass) == ["turn_off", "turn_on"]
+    assert _number_calls(mock_hass) == [(SESSION, 10)]
+
+
+async def test_learned_restart_not_used_for_station_lever(
+    station_charger, mock_hass, states
+):
+    """The station lever keeps its immediate restart regardless of the flag."""
+    station_charger._resume_needs_restart = True
+    states[STATUS_CONN] = OcppStatusMap.SuspendedEVSE
+    states[STATION] = "0"
+    await station_charger.set_current_limit(_limit(10))
+    assert _number_calls(mock_hass) == [(STATION, 10)]
+    assert _switch_calls(mock_hass) == ["turn_off", "turn_on"]
 
 
 # ---------------------------------------------------------------------------
