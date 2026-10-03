@@ -36,7 +36,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceEntry
@@ -671,10 +671,20 @@ class OcppCharger(HaDevice, Charger):
         return state is not None and state.state != STATE_UNAVAILABLE
 
     def _read_number(self, entity_id: str | None) -> int | None:
+        # Read the raw state instead of HaDevice._get_entity_state: on
+        # ocpp >= 0.12 the number entities are 'unknown' until a value is
+        # confirmed, which is normal and must not log a parse warning on
+        # every coordinator tick.
         if entity_id is None:
             return None
-        state = self._get_entity_state(entity_id, parser_fn=float)
-        return None if state is None else int(state)
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+            return None
+        try:
+            return int(float(state.state))
+        except ValueError:
+            _LOGGER.debug("Ignoring non-numeric state %r of %s", state.state, entity_id)
+            return None
 
     def _schedule(self, coro: Coroutine[Any, Any, None]) -> None:
         self._cancel_task()

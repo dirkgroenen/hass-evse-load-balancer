@@ -638,6 +638,15 @@ async def test_get_current_limit_while_binding_reports_last_requested(
     assert session_charger.get_current_limit() == _limit(10)
 
 
+def test_unknown_session_limit_is_not_parsed(session_charger, states):
+    """'unknown' is read silently, without the base-class parse warning."""
+    states[SESSION] = "unknown"
+    parser = MagicMock(wraps=session_charger._get_entity_state)
+    session_charger._get_entity_state = parser
+    assert session_charger.get_current_limit() == _limit(16)
+    assert all(c.kwargs.get("parser_fn") is None for c in parser.call_args_list)
+
+
 def test_get_current_limit_none_without_entities(
     mock_hass, mock_config_entry, mock_device_entry, states
 ):
