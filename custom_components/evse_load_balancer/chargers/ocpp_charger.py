@@ -163,6 +163,11 @@ class OcppCharger(HaDevice, Charger):
 
         self._session_failures = 0
         self._session_disabled = False
+        # Learned per charger: True once a raised session limit failed to lift
+        # SuspendedEVSE on its own. Later resumes then restart the transaction
+        # immediately instead of waiting OCPP_RESUME_GRACE first. In memory
+        # only; the first resume after a reload re-learns it.
+        self._resume_needs_restart = False
         # True when the station ceiling was written as a fallback while the
         # session lever is primary; restored on the next session success.
         self._station_overridden = False
@@ -270,7 +275,8 @@ class OcppCharger(HaDevice, Charger):
         * session lever: push the new limit within the same transaction and
           only restart the transaction if the charger is still suspended
           after ``OCPP_RESUME_GRACE`` seconds. The session limit is then
-          re-bound to the new transaction.
+          re-bound to the new transaction. Once a charger has needed that
+          restart, later resumes restart immediately (e.g. Garo CS).
         """
         self._cancel_task()
 
@@ -324,6 +330,17 @@ class OcppCharger(HaDevice, Charger):
         session_id = self._session_entity_id()
         if session_id is None:
             return False
+
+        if resuming and self._resume_needs_restart:
+            # This charger only leaves SuspendedEVSE on a new transaction, and
+            # a TxProfile on the old one would be discarded anyway.
+            _LOGGER.info(
+                "Resuming at %sA by restarting the transaction (this charger "
+                "does not resume on a raised session limit).",
+                value,
+            )
+            self._schedule(self._restart_and_rebind(value))
+            return True
 
         if not self._entity_available(session_id):
             # No transaction is bound to the slider yet (Preparing, HA
@@ -459,12 +476,18 @@ class OcppCharger(HaDevice, Charger):
                 "no transaction restart needed."
             )
             return
+        self._resume_needs_restart = True
         _LOGGER.info(
             "Still SuspendedEVSE %ss after raising the session limit to %sA; "
-            "restarting the transaction.",
+            "restarting the transaction. Later resumes on this charger restart "
+            "immediately.",
             OCPP_RESUME_GRACE,
             value,
         )
+        await self._restart_and_rebind(value)
+
+    async def _restart_and_rebind(self, value: int) -> None:
+        """Restart the transaction, then bind ``value`` to the new one."""
         previous = self._transaction_id()
         await self._kick_charge_control()
         await self._wait_for_new_transaction(previous)
