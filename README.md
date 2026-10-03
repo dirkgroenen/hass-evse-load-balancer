@@ -60,6 +60,8 @@ _Supports 1-3 Phase configurations_
 | Keba Charging Station (BMW Wallbox) | [keba](https://www.home-assistant.io/integrations/keba/)                | ?               |
 | OCPP-compatible Chargers            | [lbbrhzn/ocpp](https://github.com/lbbrhzn/ocpp)                         | v0.8.0          |
 
+_OCPP: lbbrhzn/ocpp v0.12.0+ recommended (steers the per-session current limit); older versions use the station-wide maximum current._
+
 _Additional chargers to be added..._
 
 ## How It Works
