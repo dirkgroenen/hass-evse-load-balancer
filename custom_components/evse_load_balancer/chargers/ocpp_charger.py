@@ -129,6 +129,9 @@ OCPP_RESUME_GRACE = 15
 OCPP_SESSION_MAX_FAILURES = 3
 # Transaction restart: how long to wait for the new transaction id.
 OCPP_NEW_TRANSACTION_TIMEOUT = 30
+# After an HA (re)start: how long to look for a running transaction whose
+# session limit was set before the restart and is therefore invisible.
+OCPP_STARTUP_SYNC_TIMEOUT = 120
 
 _POLL_INTERVAL = 1.0
 _NO_TRANSACTION = (None, "", "0", "None", "unknown", STATE_UNAVAILABLE)
@@ -234,7 +237,54 @@ class OcppCharger(HaDevice, Charger):
         return ControlLever.STATION
 
     async def async_setup(self) -> None:
-        """Set up the charger."""
+        """Set up the charger: re-align a session limit that predates HA start."""
+        self._schedule(self._sync_after_startup())
+
+    async def _sync_after_startup(self) -> None:
+        """
+        Re-assert the session limit for a transaction that survived an HA restart.
+
+        ocpp >= 0.12 does not restore the Session Current Limit across a
+        restart; it reads ``unknown`` while the charger may still hold the
+        old TxProfile (e.g. 13A). The balancer then initialises at the
+        station ceiling and, if headroom allows it, never writes, leaving
+        the car under-delivered (or still paused) for the whole session.
+
+        Writing the ceiling once aligns the charger with the balancer. If
+        the charger is in SuspendedEVSE (most likely our own pause from
+        before the restart), the normal resume path follows: grace period,
+        then a transaction restart if it does not resume on its own.
+
+        Superseded (cancelled) as soon as the balancer sets a limit itself.
+        """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + OCPP_STARTUP_SYNC_TIMEOUT
+        while loop.time() < deadline:
+            session_id = self._session_entity_id()
+            if session_id is None:
+                return
+            status = self._get_status()
+            if status in (
+                OcppStatusMap.Charging,
+                OcppStatusMap.SuspendedEVSE,
+            ) and self._entity_available(session_id):
+                if self._read_number(session_id) is not None:
+                    return  # a limit for this transaction is already known
+                ceiling = self._read_number(self._station_entity_id())
+                if ceiling is None or not await self._set_number(session_id, ceiling):
+                    return
+                _LOGGER.info(
+                    "Re-asserted session limit %sA on %s after startup (status=%s); "
+                    "a limit set before the restart is not visible to Home "
+                    "Assistant.",
+                    ceiling,
+                    session_id,
+                    status,
+                )
+                if status == OcppStatusMap.SuspendedEVSE:
+                    await self._verify_resume(ceiling)
+                return
+            await asyncio.sleep(_POLL_INTERVAL)
 
     async def async_unload(self) -> None:
         """Unload the OCPP charger."""
