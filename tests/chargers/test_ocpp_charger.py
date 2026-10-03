@@ -232,6 +232,7 @@ def fast():
         patch(f"{MODULE}.OCPP_RESUME_GRACE", 0),
         patch(f"{MODULE}.OCPP_SESSION_BIND_TIMEOUT", 0.2),
         patch(f"{MODULE}.OCPP_NEW_TRANSACTION_TIMEOUT", 0.2),
+        patch(f"{MODULE}.OCPP_STARTUP_SYNC_TIMEOUT", 0.2),
         patch(f"{MODULE}._POLL_INTERVAL", 0),
     ):
         yield
@@ -738,9 +739,74 @@ def test_status_predicates(
     assert station_charger.is_charging() is charging
 
 
-async def test_async_setup_noop(station_charger):
-    """async_setup is a no-op."""
-    await station_charger.async_setup()
+async def test_async_setup_schedules_startup_sync(session_charger):
+    """async_setup starts the post-restart session-limit sync."""
+    await session_charger.async_setup()
+    assert session_charger._task_pending()
+
+
+async def test_startup_sync_writes_ceiling_when_charging(
+    session_charger, mock_hass, states, fast
+):
+    """Unknown session limit on a running transaction: write the ceiling once."""
+    states[SESSION] = "unknown"
+    await session_charger._sync_after_startup()
+    assert _number_calls(mock_hass) == [(SESSION, 16)]
+    assert _switch_calls(mock_hass) == []
+
+
+async def test_startup_sync_skips_known_session_limit(
+    session_charger, mock_hass, states, fast
+):
+    """A limit already known for this transaction is left alone."""
+    states[SESSION] = "9"
+    await session_charger._sync_after_startup()
+    mock_hass.services.async_call.assert_not_called()
+
+
+async def test_startup_sync_skips_without_transaction(
+    session_charger, mock_hass, states, fast
+):
+    """No car / no transaction within the window: nothing is written."""
+    states[SESSION] = "unavailable"
+    states[STATUS_CONN] = OcppStatusMap.Available
+    await session_charger._sync_after_startup()
+    mock_hass.services.async_call.assert_not_called()
+
+
+async def test_startup_sync_skips_station_lever(
+    station_charger, mock_hass, states, fast
+):
+    """ocpp < 0.12: nothing to sync."""
+    await station_charger._sync_after_startup()
+    mock_hass.services.async_call.assert_not_called()
+
+
+async def test_startup_sync_resumes_stale_pause(
+    session_charger, mock_hass, states, fast
+):
+    """Paused before the restart: write ceiling, then restart if still paused."""
+    states[SESSION] = "unknown"
+    states[STATUS_CONN] = OcppStatusMap.SuspendedEVSE
+
+    async def _calls(**kwargs):
+        if kwargs["domain"] == "switch" and kwargs["service"] == "turn_on":
+            states[TX] = "1002"
+            states[STATUS_CONN] = OcppStatusMap.Charging
+            states[SESSION] = "unknown"
+
+    mock_hass.services.async_call.side_effect = _calls
+    await session_charger._sync_after_startup()
+    assert _number_calls(mock_hass) == [(SESSION, 16), (SESSION, 16)]
+    assert _switch_calls(mock_hass) == ["turn_off", "turn_on"]
+
+
+async def test_balancer_write_cancels_startup_sync(session_charger, states):
+    """A real set_current_limit supersedes the startup sync."""
+    await session_charger.async_setup()
+    sync_task = session_charger._task
+    await session_charger.set_current_limit(_limit(10))
+    assert sync_task.done()
 
 
 async def test_async_unload_cancels_pending(session_charger, states):
