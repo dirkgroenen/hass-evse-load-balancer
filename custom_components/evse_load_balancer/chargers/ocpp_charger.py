@@ -31,15 +31,16 @@ This module provides a dot-aware lookup helper instead.
 
 import asyncio
 import logging
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceEntry
+from homeassistant.helpers.event import async_track_state_change_event
 
 from ..const import CHARGER_DOMAIN_OCPP, Phase  # noqa: TID252
 from ..ha_device import HaDevice  # noqa: TID252
@@ -175,6 +176,7 @@ class OcppCharger(HaDevice, Charger):
         # session lever is primary; restored on the next session success.
         self._station_overridden = False
         self._task: asyncio.Task | None = None
+        self._unsub_status: Callable[[], None] | None = None
 
         self.refresh_entities()
 
@@ -195,6 +197,39 @@ class OcppCharger(HaDevice, Charger):
             len(list(self.entities)),
             len(self._parent_entities),
         )
+
+    def _read_ceiling(self) -> int | None:
+        """Return the station ceiling (maximum_current, else its max)."""
+        ceiling = self._read_number(self._station_entity_id())
+        if ceiling is None:
+            max_limit = self.get_max_current_limit()
+            ceiling = min(max_limit.values()) if max_limit else None
+        return ceiling
+
+    def _stale_pause_value(self) -> int | None:
+        """Return the session limit if it is a stale pause (below 6A)."""
+        session_id = self._session_entity_id()
+        if session_id is None or not self._entity_available(session_id):
+            return None
+        value = self._read_number(session_id)
+        return value if value is not None and value < OCPP_CAR_MIN_CURRENT else None
+
+    async def _reset_session_limit(self, reason: str) -> bool:
+        """Write the station ceiling to the session limit."""
+        session_id = self._session_entity_id()
+        ceiling = self._read_ceiling()
+        if session_id is None or ceiling is None:
+            return False
+        if not await self._set_number(session_id, ceiling):
+            return False
+        self._paused_by_us = False
+        _LOGGER.info(
+            "Reset %s to %sA: %s.",
+            session_id,
+            ceiling,
+            reason,
+        )
+        return True
 
     def refresh_entities(self) -> None:
         """Refresh entities of the device and of its parent device."""
@@ -237,8 +272,41 @@ class OcppCharger(HaDevice, Charger):
         return ControlLever.STATION
 
     async def async_setup(self) -> None:
-        """Set up the charger: re-align a session limit that predates HA start."""
+        """
+        Set up the charger.
+
+        Re-aligns a session limit that predates the HA start, and watches
+        the connector status to clear a stale 0A default profile when a
+        session ends (see ``_on_status_change``).
+        """
+        status_ids = [
+            entity_id
+            for key in (OcppEntityMap.StatusConnector, OcppEntityMap.Status)
+            if (entity_id := self._get_ocpp_entity_id(domain="sensor", key=key))
+        ]
+        if status_ids:
+            self._unsub_status = async_track_state_change_event(
+                self.hass, status_ids, self._on_status_change
+            )
         self._schedule(self._sync_after_startup())
+
+    @callback
+    def _on_status_change(self, event: Event[EventStateChangedData]) -> None:
+        """
+        Clear a 0A session limit that would outlive the session.
+
+        With ocpp's "Send Session Current Limit as a default profile"
+        option (>= 0.12.1) the session limit is a TxDefaultProfile that
+        survives the transaction. A pause (0A) in place when the car leaves
+        would make the next session start paused. In the default
+        TxProfile mode the slider is unavailable without a transaction and
+        nothing happens here.
+        """
+        new_state = event.data["new_state"]
+        if new_state is None or new_state.state != OcppStatusMap.Available:
+            return
+        if self._stale_pause_value() is not None:
+            self._schedule(self._reset_session_limit("the connector became Available"))
 
     async def _sync_after_startup(self) -> None:
         """
@@ -255,6 +323,11 @@ class OcppCharger(HaDevice, Charger):
         before the restart), the normal resume path follows: grace period,
         then a transaction restart if it does not resume on its own.
 
+        With ocpp's TxDefaultProfile option (>= 0.12.1) the value *is*
+        restored after a restart. A restored value below 6A is treated as a
+        stale pause and reset the same way; any other restored value is left
+        alone.
+
         Superseded (cancelled) as soon as the balancer sets a limit itself.
         """
         loop = asyncio.get_running_loop()
@@ -263,32 +336,37 @@ class OcppCharger(HaDevice, Charger):
             session_id = self._session_entity_id()
             if session_id is None:
                 return
-            status = self._get_status()
-            if status in (
-                OcppStatusMap.Charging,
-                OcppStatusMap.SuspendedEVSE,
-            ) and self._entity_available(session_id):
-                if self._read_number(session_id) is not None:
-                    return  # a limit for this transaction is already known
-                ceiling = self._read_number(self._station_entity_id())
-                if ceiling is None or not await self._set_number(session_id, ceiling):
-                    return
-                _LOGGER.info(
-                    "Re-asserted session limit %sA on %s after startup (status=%s); "
-                    "a limit set before the restart is not visible to Home "
-                    "Assistant.",
-                    ceiling,
-                    session_id,
-                    status,
+            if self._entity_available(session_id):
+                status = self._get_status()
+                value = self._read_number(session_id)
+                in_transaction = status in (
+                    OcppStatusMap.Charging,
+                    OcppStatusMap.SuspendedEVSE,
                 )
-                if status == OcppStatusMap.SuspendedEVSE:
-                    await self._verify_resume(ceiling)
-                return
+                if value is None and in_transaction:
+                    reason = "a limit set before the restart is not visible to HA"
+                elif value is not None and value < OCPP_CAR_MIN_CURRENT:
+                    # Default-profile mode restores the last value, which can
+                    # be our own pause from before the restart.
+                    reason = "a 0A pause from before the restart was restored"
+                elif value is not None:
+                    return  # a real limit is known; leave it to the balancer
+                else:
+                    reason = None  # TxProfile mode, no transaction yet
+                if reason is not None:
+                    if await self._reset_session_limit(reason) and (
+                        status == OcppStatusMap.SuspendedEVSE
+                    ):
+                        await self._verify_resume(self._read_ceiling() or 0)
+                    return
             await asyncio.sleep(_POLL_INTERVAL)
 
     async def async_unload(self) -> None:
         """Unload the OCPP charger."""
         self._cancel_task()
+        if self._unsub_status is not None:
+            self._unsub_status()
+            self._unsub_status = None
 
     def set_phase_mode(self, mode: PhaseMode, _phase: Phase | None = None) -> None:
         """
