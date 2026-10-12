@@ -73,6 +73,18 @@ async def run_scheduled(charger):
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def track_status():
+    """Capture the status listener registered in async_setup."""
+    with patch(f"{MODULE}.async_track_state_change_event") as track:
+        track.return_value = MagicMock(name="unsub")
+        yield track
+
+
+def _status_event(state: str):
+    return SimpleNamespace(data={"new_state": SimpleNamespace(state=state)})
+
+
 @pytest.fixture
 def states():
     """Entity states keyed by entity_id; shared by hass and the charger."""
@@ -799,6 +811,86 @@ async def test_startup_sync_resumes_stale_pause(
     await session_charger._sync_after_startup()
     assert _number_calls(mock_hass) == [(SESSION, 16), (SESSION, 16)]
     assert _switch_calls(mock_hass) == ["turn_off", "turn_on"]
+
+
+async def test_startup_sync_resets_restored_zero_default_profile(
+    session_charger, mock_hass, states, fast
+):
+    """TxDefaultProfile mode restores our 0A pause after a restart: reset it."""
+    states[SESSION] = "0"
+    states[STATUS_CONN] = OcppStatusMap.Available
+    await session_charger._sync_after_startup()
+    assert _number_calls(mock_hass) == [(SESSION, 16)]
+
+
+async def test_startup_sync_resumes_restored_zero_while_suspended(
+    session_charger, mock_hass, states, fast
+):
+    """Restored 0A on a suspended transaction: reset, then restart if needed."""
+    states[SESSION] = "0"
+    states[STATUS_CONN] = OcppStatusMap.SuspendedEVSE
+
+    async def _calls(**kwargs):
+        if kwargs["domain"] == "switch" and kwargs["service"] == "turn_on":
+            states[TX] = "1002"
+            states[STATUS_CONN] = OcppStatusMap.Charging
+
+    mock_hass.services.async_call.side_effect = _calls
+    await session_charger._sync_after_startup()
+    assert _switch_calls(mock_hass) == ["turn_off", "turn_on"]
+    assert _number_calls(mock_hass)[0] == (SESSION, 16)
+
+
+async def test_startup_sync_ignores_unset_default_profile_without_car(
+    session_charger, mock_hass, states, fast
+):
+    """Default-profile slider never set, no car: nothing to do."""
+    states[SESSION] = "unknown"
+    states[STATUS_CONN] = OcppStatusMap.Available
+    await session_charger._sync_after_startup()
+    mock_hass.services.async_call.assert_not_called()
+
+
+async def test_setup_subscribes_to_status(session_charger, track_status):
+    """async_setup listens to the connector/charger status sensors."""
+    await session_charger.async_setup()
+    entity_ids = track_status.call_args.args[1]
+    assert entity_ids == [STATUS_CONN, STATUS]
+
+
+async def test_unload_unsubscribes_status(session_charger, track_status):
+    """async_unload removes the status listener."""
+    await session_charger.async_setup()
+    await session_charger.async_unload()
+    track_status.return_value.assert_called_once()
+
+
+async def test_session_end_resets_stale_zero_default_profile(
+    session_charger, mock_hass, states, fast
+):
+    """Car leaves while paused in default-profile mode: reset to the ceiling."""
+    await session_charger.set_current_limit(_limit(3))  # pause
+    states[SESSION] = "0"
+    states[STATUS_CONN] = OcppStatusMap.Available  # slider still available
+    session_charger._on_status_change(_status_event(OcppStatusMap.Available))
+    await run_scheduled(session_charger)
+    assert _number_calls(mock_hass) == [(SESSION, 0), (SESSION, 16)]
+    assert session_charger._paused_by_us is False
+
+
+async def test_session_end_ignored_in_txprofile_mode(session_charger, states):
+    """TxProfile mode: the profile died with the transaction; nothing to do."""
+    states[SESSION] = "unavailable"
+    states[STATUS_CONN] = OcppStatusMap.Available
+    session_charger._on_status_change(_status_event(OcppStatusMap.Available))
+    assert session_charger._task is None
+
+
+async def test_status_change_ignores_non_available(session_charger, states):
+    """Only the transition to Available triggers the reset."""
+    states[SESSION] = "0"
+    session_charger._on_status_change(_status_event(OcppStatusMap.Charging))
+    assert session_charger._task is None
 
 
 async def test_balancer_write_cancels_startup_sync(session_charger, states):
