@@ -12,6 +12,7 @@ from .charger import Charger
 from .easee_charger import EaseeCharger
 from .keba_charger import KebaCharger
 from .lektrico_charger import LektricoCharger
+from .wallbox_charger import WallboxCharger
 from .zaptec_charger import ZaptecCharger
 
 if TYPE_CHECKING:
@@ -36,6 +37,7 @@ async def charger_factory(
         ZaptecCharger,
         KebaCharger,
         LektricoCharger,
+        WallboxCharger,
     ]:
         if charger_cls.is_charger_device(device):
             return charger_cls(hass, config_entry, device)
