@@ -157,11 +157,6 @@ class FeyreeCharger(Charger, TuyaLocalDevice):
         _, maximum = self._bounds()
         return dict.fromkeys(Phase, maximum)
 
-    def get_new_session_current_limit(self) -> dict[Phase, int] | None:
-        """Preserve the user's selected current across new sessions."""
-        current = self.get_current_limit()
-        return self.normalize_current_limit(current) if current else None
-
     def car_connected(self) -> bool:
         """Exclude absent vehicles, faults and unfulfilled authorization."""
         status = self._get_entity_state(self.entity_id("sensor_status"))

@@ -16,6 +16,10 @@ from custom_components.evse_load_balancer.config_flow import EvseLoadBalancerCon
 from custom_components.evse_load_balancer.const import DOMAIN, Phase
 from custom_components.evse_load_balancer.coordinator import EVSELoadBalancerCoordinator
 from custom_components.evse_load_balancer.meters import meter_factory
+from custom_components.evse_load_balancer.options_flow import (
+    OPTION_ALLOW_TEMPORARY_OVERCURRENT,
+    EvseLoadBalancerOptionsFlow,
+)
 from custom_components.evse_load_balancer.power_allocator import PowerAllocator
 
 
@@ -243,7 +247,7 @@ async def test_completed_session_without_owned_pause_is_never_started(hass, tuya
     assert calls == []
 
 
-async def test_new_feyree_session_preserves_selected_six_amps(hass, tuya):
+async def test_new_feyree_session_requests_circuit_capped_maximum(hass, tuya):
     _, _, ids, _, charger, _ = tuya
     attrs = hass.states.get(ids["number_set_charge_current"]).attributes
     hass.states.async_set(ids["number_set_charge_current"], "6", attrs)
@@ -254,7 +258,7 @@ async def test_new_feyree_session_preserves_selected_six_amps(hass, tuya):
     hass.states.async_set(ids["select_charging"], "on_demand")
     hass.states.async_set(ids["sensor_status"], "charging")
     allocator.update_allocation(limits(9))
-    assert allocator._chargers[charger.id].requested_current == limits(6)
+    assert allocator._chargers[charger.id].requested_current == limits(16)
 
 
 async def test_manual_off_and_fault_are_never_started(hass, tuya):
@@ -383,7 +387,10 @@ async def test_coordinator_failed_pause_does_not_record_applied_zero(
     await coordinator.async_unload()
 
 
-async def test_feyree_config_flow_requires_explicit_cap(hass, tuya):
+@pytest.mark.parametrize("custom_phase_config", [False, True])
+async def test_feyree_config_flow_requires_explicit_cap(
+    hass, tuya, custom_phase_config
+):
     entry, devices, ids, calls, charger, meter = tuya
     flow = EvseLoadBalancerConfigFlow()
     flow.hass = hass
@@ -393,13 +400,35 @@ async def test_feyree_config_flow_requires_explicit_cap(hass, tuya):
             "meter_device": devices["meter"].id,
             "fuse_size": 16,
             "phase_count": 3,
+            "custom_phase_config": custom_phase_config,
         }
     )
     assert form["step_id"] == "feyree"
     invalid = await flow.async_step_feyree({"charger_max_current": 5})
     assert invalid["errors"] == {"charger_max_current": "invalid_charger_max_current"}
     configured = await flow.async_step_feyree({"charger_max_current": 16})
+    if custom_phase_config:
+        assert configured["step_id"] == "power"
+        configured = await flow.async_step_power(
+            {
+                f"l{phase}": {
+                    "power_consumption": f"sensor.l{phase}_power",
+                    "power_production": "sensor.zero",
+                    "voltage": f"sensor.l{phase}_voltage",
+                }
+                for phase in range(1, 4)
+            }
+        )
     assert configured["type"] == "create_entry"
     assert configured["data"]["charger_max_current"] == 16
-    assert configured["options"]["allow_temporary_overcurrent"] is False
+    assert OPTION_ALLOW_TEMPORARY_OVERCURRENT not in configured["options"]
+    configured_entry = MockConfigEntry(
+        domain=DOMAIN, data=configured["data"], options=configured["options"]
+    )
+    assert (
+        EvseLoadBalancerOptionsFlow.get_option_value(
+            configured_entry, OPTION_ALLOW_TEMPORARY_OVERCURRENT
+        )
+        is True
+    )
     assert calls == []

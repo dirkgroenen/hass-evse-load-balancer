@@ -52,13 +52,13 @@ class ChargerState:
         is_charging = self.charger.can_charge()
 
         if is_charging and not self._active_session:
-            session_limits = self.charger.get_new_session_current_limit()
-            if session_limits:
-                self.requested_current = dict(session_limits)
+            max_limits = self.charger.get_max_current_limit()
+            if max_limits:
+                self.requested_current = dict(max_limits)
                 _LOGGER.info(
-                    "New charging session detected for %s, requested current: %s",
+                    "New charging session detected for %s, resetting to maximum: %s",
                     self.charger.id,
-                    session_limits,
+                    max_limits,
                 )
                 self._active_session = True
 

@@ -278,7 +278,6 @@ class EvseLoadBalancerConfigFlow(ConfigFlow, domain=DOMAIN):
                     return self.async_create_entry(
                         title="EVSE Load Balancer",
                         data=self.cf_data,
-                        options={"allow_temporary_overcurrent": False},
                     )
         except (ValueError, AttributeError):
             errors["base"] = "charger_unavailable"
@@ -319,9 +318,6 @@ class EvseLoadBalancerConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title="EVSE Load Balancer",
                     data=self.cf_data,
-                    options={"allow_temporary_overcurrent": False}
-                    if CONF_CHARGER_MAX_CURRENT in self.cf_data
-                    else {},
                 )
 
         return self.async_show_form(

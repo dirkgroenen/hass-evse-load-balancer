@@ -55,10 +55,6 @@ class Charger(ABC):
         """Return the effective limit the hardware can apply."""
         return dict(limit)
 
-    def get_new_session_current_limit(self) -> dict[Phase, int] | None:
-        """Return the requested limit when a new charging session begins."""
-        return self.get_max_current_limit()
-
     async def async_handle_meter_unavailable(self) -> dict[Phase, int] | None:
         """Allow adapters with a pause control to react to missing meter data."""
         return None
