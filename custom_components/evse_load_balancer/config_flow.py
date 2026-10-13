@@ -14,6 +14,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResu
 from homeassistant.const import __version__ as ha_version
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.selector import (
     DeviceSelector,
     DeviceSelectorConfig,
@@ -31,12 +32,20 @@ from .const import (
     CHARGER_DOMAIN_ZHA,
     CHARGER_MANUFACTURER_AMINA,
     CHARGER_MANUFACTURER_AMINA_ZHA,
+    CONF_CHARGER_MAX_CURRENT,
     DOMAIN,
+    FEYREE_MANUFACTURER,
+    FEYREE_MODEL,
     HA_INTEGRATION_DOMAIN_MQTT,
     SUPPORTED_METER_DEVICES,
+    TUYA_LOCAL_DOMAIN,
+    VERATTI_MANUFACTURER,
+    VERATTI_MODEL,
+    Phase,
 )
 from .exceptions.validation_exception import ValidationExceptionError
 from .options_flow import EvseLoadBalancerOptionsFlow
+from .tuya_local_device import TuyaLocalDevice, finite_number, is_tuya_local_device
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,6 +65,11 @@ CONF_METER_DEVICE = "meter_device"
 CONF_CHARGER_DEVICE = "charger_device"
 
 _charger_device_filter_list: list[dict[str, str]] = [
+    {
+        "integration": TUYA_LOCAL_DOMAIN,
+        "manufacturer": FEYREE_MANUFACTURER,
+        "model": FEYREE_MODEL,
+    },
     {"integration": CHARGER_DOMAIN_EASEE},
     {"integration": CHARGER_DOMAIN_ZAPTEC},
     {"integration": CHARGER_DOMAIN_KEBA},
@@ -77,7 +91,13 @@ _charger_device_filter_list: list[dict[str, str]] = [
     },
 ]
 
-_meter_device_filter_list: list[dict[str, str]] = []
+_meter_device_filter_list: list[dict[str, str]] = [
+    {
+        "integration": TUYA_LOCAL_DOMAIN,
+        "manufacturer": VERATTI_MANUFACTURER,
+        "model": VERATTI_MODEL,
+    },
+]
 
 for domain, manufacturer in SUPPORTED_METER_DEVICES:
     filter_entry = {"integration": domain}
@@ -212,6 +232,13 @@ class EvseLoadBalancerConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors[ex.base] = ex.key
             if not errors:
                 self.cf_data = input_data
+                device = dr.async_get(self.hass).async_get(
+                    input_data[CONF_CHARGER_DEVICE]
+                )
+                if device and is_tuya_local_device(
+                    device, FEYREE_MANUFACTURER, FEYREE_MODEL
+                ):
+                    return await self.async_step_feyree()
                 if self.cf_data.get(CONF_CUSTOM_PHASE_CONFIG, False):
                     return await self.async_step_power()
                 return self.async_create_entry(
@@ -221,6 +248,59 @@ class EvseLoadBalancerConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_INIT_SCHEMA, errors=errors
+        )
+
+    async def async_step_feyree(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Require an explicit circuit maximum before managing a Tuya charger."""
+        errors: dict[str, str] = {}
+        device = dr.async_get(self.hass).async_get(self.cf_data[CONF_CHARGER_DEVICE])
+        try:
+            charger = TuyaLocalDevice(self.hass, device)
+            attrs = charger.entity_attributes("number_set_charge_current")
+            charger.entity_id("select_charging")
+            charger.entity_id("sensor_status")
+            low = finite_number(attrs.get("min")) if attrs else None
+            high = finite_number(attrs.get("max")) if attrs else None
+            if low is None or high is None:
+                errors["base"] = "charger_unavailable"
+            if int(self.cf_data[CONF_PHASE_COUNT]) != len(list(Phase)):
+                errors["base"] = "feyree_three_phases"
+            if user_input is not None and not errors:
+                cap = finite_number(user_input.get(CONF_CHARGER_MAX_CURRENT))
+                if cap is None or cap < low or cap > high or cap != int(cap):
+                    errors[CONF_CHARGER_MAX_CURRENT] = "invalid_charger_max_current"
+                else:
+                    self.cf_data.update(user_input)
+                    if self.cf_data.get(CONF_CUSTOM_PHASE_CONFIG, False):
+                        return await self.async_step_power()
+                    return self.async_create_entry(
+                        title="EVSE Load Balancer",
+                        data=self.cf_data,
+                        options={"allow_temporary_overcurrent": False},
+                    )
+        except (ValueError, AttributeError):
+            errors["base"] = "charger_unavailable"
+        return self.async_show_form(
+            step_id="feyree",
+            errors=errors,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_CHARGER_MAX_CURRENT,
+                        default=min(self.cf_data[CONF_FUSE_SIZE], 16),
+                    ): NumberSelector(
+                        {
+                            "min": 1,
+                            "max": 50,
+                            "step": 1,
+                            "mode": "box",
+                            "unit_of_measurement": "A",
+                        }
+                    )
+                }
+            ),
         )
 
     async def async_step_power(
@@ -239,6 +319,9 @@ class EvseLoadBalancerConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title="EVSE Load Balancer",
                     data=self.cf_data,
+                    options={"allow_temporary_overcurrent": False}
+                    if CONF_CHARGER_MAX_CURRENT in self.cf_data
+                    else {},
                 )
 
         return self.async_show_form(

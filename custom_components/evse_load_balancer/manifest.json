@@ -7,7 +7,8 @@
     "dsmr",
     "mqtt",
     "zigbee2mqtt",
-    "esphome"
+    "esphome",
+    "tuya_local"
   ],
   "codeowners": [
     "@dirkgroenen"

@@ -10,6 +10,7 @@ from .amina_charger import AminaCharger
 from .amina_zha_charger import AminaZhaCharger
 from .charger import Charger
 from .easee_charger import EaseeCharger
+from .feyree_charger import FeyreeCharger
 from .keba_charger import KebaCharger
 from .lektrico_charger import LektricoCharger
 from .zaptec_charger import ZaptecCharger
@@ -36,6 +37,7 @@ async def charger_factory(
         ZaptecCharger,
         KebaCharger,
         LektricoCharger,
+        FeyreeCharger,
     ]:
         if charger_cls.is_charger_device(device):
             return charger_cls(hass, config_entry, device)

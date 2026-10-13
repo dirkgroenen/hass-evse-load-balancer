@@ -2,7 +2,10 @@
     "title": "EVSE Load Balancer",
     "config": {
         "error": {
-            "metering_selection_required": "Either select a Smart Meter or select 'Advanced Energy Configuration'"
+            "metering_selection_required": "Either select a Smart Meter or select 'Advanced Energy Configuration'",
+            "charger_unavailable": "Enable the Set charge current, Charging and Status entities and ensure the charger is online.",
+            "feyree_three_phases": "This adapter requires three phases.",
+            "invalid_charger_max_current": "Enter a whole number within the charger hardware limits and no higher than the circuit rating."
         },
         "step": {
             "user": {
@@ -27,6 +30,13 @@
                 },
                 "description": "Provide energy sensor details for each phase if custom configuration is selected.",
                 "title": "Energy Configuration"
+            },
+            "feyree": {
+                "title": "Feyree charger circuit limit",
+                "description": "Enter the maximum allowed current per phase for the charger circuit. The VERATTI meter must measure the whole home including this charger. Charging pauses below the charger minimum and resumes only after a pause made by this balancer.",
+                "data": {
+                    "charger_max_current": "Charger circuit maximum per phase (A)"
+                }
             }
         }
     },

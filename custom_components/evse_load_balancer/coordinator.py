@@ -1,6 +1,8 @@
 """Main coordinator for load balacer."""
 
 import logging
+from asyncio import CancelledError, Task
+from contextlib import suppress
 from datetime import datetime, timedelta  # Ensure datetime is imported
 from functools import cached_property
 from math import floor
@@ -9,6 +11,7 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_DEVICE_ID
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.event import async_track_time_interval
 
@@ -62,6 +65,7 @@ class EVSELoadBalancerCoordinator:
 
         self._meter: Meter = meter
         self._charger: Charger = charger
+        self._meter_pause_task: Task | None = None
 
     async def async_setup(self) -> None:
         """Set up the coordinator and its managed components."""
@@ -98,11 +102,16 @@ class EVSELoadBalancerCoordinator:
 
     async def async_unload(self) -> None:
         """Unload the coordinator and its managed components."""
-        await self._charger.async_unload()
-
         for unsub_method in self._unsub:
             unsub_method()
         self._unsub.clear()
+
+        if self._meter_pause_task is not None:
+            self._meter_pause_task.cancel()
+            with suppress(CancelledError):
+                await self._meter_pause_task
+            self._meter_pause_task = None
+        await self._charger.async_unload()
 
     @cached_property
     def _device(self) -> dr.DeviceEntry:
@@ -207,6 +216,12 @@ class EVSELoadBalancerCoordinator:
 
         if available_currents is None:
             _LOGGER.warning("Available current unknown. Cannot adjust limit.")
+            if self._charger.pauses_on_meter_unavailable and (
+                self._meter_pause_task is None or self._meter_pause_task.done()
+            ):
+                self._meter_pause_task = self.hass.async_create_task(
+                    self._async_handle_meter_unavailable(now.timestamp())
+                )
             return
 
         # Run the actual charger update
@@ -247,6 +262,21 @@ class EVSELoadBalancerCoordinator:
                 charger_id=self._charger.id,
                 applied_current=allocation_result,
                 timestamp=now.timestamp(),
+            )
+
+    async def _async_handle_meter_unavailable(self, timestamp: float) -> None:
+        """Preserve the recovery target when an adapter pauses on missing readings."""
+        self._power_allocator.update_allocation(
+            dict.fromkeys(self._available_phases, 0)
+        )
+        try:
+            applied = await self._charger.async_handle_meter_unavailable()
+        except (HomeAssistantError, ValueError):
+            _LOGGER.exception("Unable to pause charger while meter is unavailable")
+            return
+        if applied is not None:
+            self._power_allocator.update_applied_current(
+                self._charger.id, applied, timestamp
             )
 
     def _async_update_sensors(self) -> None:

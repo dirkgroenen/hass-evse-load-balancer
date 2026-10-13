@@ -52,13 +52,13 @@ class ChargerState:
         is_charging = self.charger.can_charge()
 
         if is_charging and not self._active_session:
-            max_limits = self.charger.get_max_current_limit()
-            if max_limits:
-                self.requested_current = dict(max_limits)
+            session_limits = self.charger.get_new_session_current_limit()
+            if session_limits:
+                self.requested_current = dict(session_limits)
                 _LOGGER.info(
-                    "New charging session detected for %s, resetting to maximum: %s",
+                    "New charging session detected for %s, requested current: %s",
                     self.charger.id,
-                    max_limits,
+                    session_limits,
                 )
                 self._active_session = True
 
@@ -265,7 +265,20 @@ class PowerAllocator:
                     # If no phases were processed, keep the original values
                     pass
 
-        return result
+        # Normalize even when availability is zero or there is no recovery target,
+        # so a manual setting above a circuit cap is still reduced.
+        for charger_id, state in self._active_chargers.items():
+            if charger_id not in result and (current := state.get_current_limit()):
+                result[charger_id] = current
+
+        # Track the actual effective limit: a paused charger uses zero amps,
+        # otherwise recovery would add headroom to a fictitious subminimum load.
+        return {
+            charger_id: self._chargers[charger_id].charger.normalize_current_limit(
+                limits
+            )
+            for charger_id, limits in result.items()
+        }
 
     def _distribute_cuts(
         self, phase: Phase, deficit: int, result: dict[str, dict[Phase, int]]
