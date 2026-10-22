@@ -265,7 +265,20 @@ class PowerAllocator:
                     # If no phases were processed, keep the original values
                     pass
 
-        return result
+        # Normalize even when availability is zero or there is no recovery target,
+        # so a manual setting above a circuit cap is still reduced.
+        for charger_id, state in self._active_chargers.items():
+            if charger_id not in result and (current := state.get_current_limit()):
+                result[charger_id] = current
+
+        # Track the actual effective limit: a paused charger uses zero amps,
+        # otherwise recovery would add headroom to a fictitious subminimum load.
+        return {
+            charger_id: self._chargers[charger_id].charger.normalize_current_limit(
+                limits
+            )
+            for charger_id, limits in result.items()
+        }
 
     def _distribute_cuts(
         self, phase: Phase, deficit: int, result: dict[str, dict[Phase, int]]

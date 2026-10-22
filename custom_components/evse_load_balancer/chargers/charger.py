@@ -51,6 +51,19 @@ class Charger(ABC):
         """
         return 15
 
+    def normalize_current_limit(self, limit: dict[Phase, int]) -> dict[Phase, int]:
+        """Return the effective limit the hardware can apply."""
+        return dict(limit)
+
+    async def async_handle_meter_unavailable(self) -> dict[Phase, int] | None:
+        """Allow adapters with a pause control to react to missing meter data."""
+        return None
+
+    @property
+    def pauses_on_meter_unavailable(self) -> bool:
+        """Return whether missing readings should trigger the adapter's pause hook."""
+        return False
+
     @abstractmethod
     async def async_setup(self) -> None:
         """Set up charger."""

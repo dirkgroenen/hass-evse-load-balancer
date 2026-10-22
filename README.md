@@ -45,6 +45,7 @@
 | HomeWizard meters      | [HomeWizard](https://www.home-assistant.io/integrations/homewizard/) | ?               |
 | AmsLeser.no            | [MQTT](https://wiki.amsleser.no/en/HomeAutomation/Home-Assistant)    | ?               |
 | Tibber Pulse           | [Tibber](https://www.home-assistant.io/integrations/tibber/)         | ?               |
+| VERATTI V4 3-phase circuit breaker | [Tuya Local](https://github.com/make-all/tuya-local), `veratti_3phase_breaker` profile | Tested with 2026.9.2 |
 | Custom configurations  | Existing Home Assistant sensors                                      | n.a.            |
 
 _Supports 1-3 Phase configurations_
@@ -58,6 +59,7 @@ _Supports 1-3 Phase configurations_
 | Amina S Chargers                    | [Zigbee2MQTT/amina_S](https://www.zigbee2mqtt.io/devices/amina_S.html)  | ?               |
 | Lektrico Chargers                   | [lektrico](https://www.home-assistant.io/integrations/lektrico/)        | HA 2024.10+     |
 | Keba Charging Station (BMW Wallbox) | [keba](https://www.home-assistant.io/integrations/keba/)                | ?               |
+| Feyree 22kW 3phase portable charger | [Tuya Local](https://github.com/make-all/tuya-local), `feyree_ev_portable_charger` profile | Tested with 2026.9.2; see [setup notes](#tuya-local-feyree-and-veratti) |
 
 _Additional chargers to be added..._
 
@@ -113,6 +115,23 @@ During setup, you will be prompted to:
 - Select your EV charger.
 - Select your energy meter or provide custom sensors
 - Specify the fuse size and number of phases in your home.
+
+### Tuya Local: Feyree and VERATTI
+
+Support is limited to the profiles listed above, using the **Tuya Local** integration (`tuya_local`). Devices are matched by their profile manufacturer and model, and entities by their registry unique IDs, so renaming entities is supported.
+
+1. Configure the charger and meter in Tuya Local. Enable the charger's **Set charge current**, **Charging**, and **Status** entities and the meter's three phase-current sensors. The meter must measure the whole-home load, including the charger.
+2. Check that **Set charge current** reports the limit actually applied by the charger. Some Feyree firmware accepts writes through DP 114–117 but reports the selected limit through DP 125. These variants need a Tuya Local profile correction before balancing can work reliably; see [Tuya Local issue #3355](https://github.com/make-all/tuya-local/issues/3355) for the device's datapoints. This adapter does not change the Tuya Local profile.
+3. Select the charger and meter in EVSE Load Balancer, configure three phases, and enter the maximum allowed current of the **charger circuit**. This cap is separate from the main fuse size and must not exceed the circuit's rating. Balancing options use the integration's standard defaults.
+4. For initial commissioning, configure a low charger circuit limit, starting at the charger's minimum supported current (normally 6 A). Confirm actual charging currents and test pause/recovery before increasing the configured limit within the circuit's rating.
+
+The charger applies one common limit to all phases, using the phase with the least headroom. When the allocator detects a new charging session, it follows the integration's existing policy of requesting the charger maximum, bounded by the configured circuit maximum. Balancing reduces or restores the allocation according to available capacity.
+
+When the available current is below the charger's minimum, the adapter selects **off** and accounts for a paused charger as using zero current. It resumes only a pause it initiated, setting the new limit before selecting **on**. Feyree's **on_demand** does not reliably resume after **off**. A manually stopped charger, a fault, or a completed session is not started. Pause ownership is not retained across reloads: a charger left off after a restart needs to be started manually.
+
+The VERATTI adapter reads phase current directly, accepts A or mA, and rounds up for allocation. Missing, unavailable, disabled, nonnumeric, or invalid readings cause the Feyree charger to pause. Unchanged cached readings remain valid while Tuya Local keeps the sensors available; there is no measurement-age timeout. On the tested meter, initial readings after reconnect could take about five minutes. The adapter never operates the meter's circuit-breaker switch.
+
+Response time depends on meter reporting, Tuya Local availability detection, and the balancer's update and recovery delays. Keep the existing electrical protection in place; software balancing cannot guarantee an instantaneous current ceiling.
 
 ### Advanced Configuration
 

@@ -20,6 +20,7 @@ from .dsmr_meter import DsmrMeter
 from .homewizard_meter import HomeWizardMeter
 from .meter import Meter
 from .tibber_meter import TibberMeter
+from .veratti_meter import VerattiMeter
 
 if TYPE_CHECKING:
     from homeassistant.helpers.device_registry import DeviceEntry
@@ -45,6 +46,9 @@ async def meter_factory(
     if not device:
         msg = f"Device with ID {device_entry_id} not found in registry."
         raise ValueError(msg)
+
+    if VerattiMeter.is_meter_device(device):
+        return VerattiMeter(hass, config_entry, device)
 
     manufacturer = next(
         (
